@@ -89,3 +89,5 @@ Thumbs.db
 # custom #
 # ====== #
 Builds/
+/[Aa]ssets/[Mm]ERF Data/
+/[Aa]ssets/[Mm]ERF Data.meta
