@@ -1,4 +1,3 @@
-
 using System;
 
 public enum MERFScene {

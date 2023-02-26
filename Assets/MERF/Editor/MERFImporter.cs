@@ -2,8 +2,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -123,6 +121,11 @@ public class MERFImporter {
         return path;
     }
 
+    private static string GetOccupancyGridCachePath(MERFScene scene, int i) {
+        string path = Path.Combine(GetCacheLocation(scene), $"occupancy_grid_{i}.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        return path;
+    }
     private static string GetAtlasIndexCachePath(MERFScene scene) {
         string path = Path.Combine(GetCacheLocation(scene), "atlas_indices.png");
         Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -164,7 +167,7 @@ public class MERFImporter {
     }
 
     private static async Task<SceneParams> DownloadSceneParamsAsync(MERFSources sceneUrls, MERFScene scene) {
-        Uri url = new Uri(sceneUrls.Get("scene_params.json"));
+        Uri url = sceneUrls.Get("scene_params.json");
         string sceneParamsJson = await WebRequestSimpleAsync.SendWebRequestAsync(url);
         TextAsset mlpJsonTextAsset = new TextAsset(sceneParamsJson);
         AssetDatabase.CreateAsset(mlpJsonTextAsset, GetSceneParamsAssetPath(scene));
@@ -173,18 +176,38 @@ public class MERFImporter {
         return sceneParams;
     }
 
-    /*private static async Task<SceneParams> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
-        for (int i = 0; i < occupancyGridBlockSizes.Length; i++) {
-            let occupancyGridUrl = sceneUrls($"occupancy_grid_{occupancyGridBlockSizes[i]}.png");
-        }
-        Uri url = sceneUrls.SceneParamsJson;
-        string sceneParamsJson = await WebRequestSimpleAsync.SendWebRequestAsync(url);
-        TextAsset mlpJsonTextAsset = new TextAsset(sceneParamsJson);
-        AssetDatabase.CreateAsset(mlpJsonTextAsset, GetSceneParamsAssetPath(scene));
+    private static async Task<Texture2D> DownloadOccupancyGridPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
+        string path = GetOccupancyGridCachePath(scene, occupancyGridBlockSizes[i]);
+        byte[] occupancyGridData;
 
-        SceneParams sceneParams = JsonConvert.DeserializeObject<SceneParams>(sceneParamsJson);
-        return sceneParams;
-    }*/
+        if (File.Exists(path)) {
+            // file is already downloaded
+            occupancyGridData = File.ReadAllBytes(path);
+        } else {
+            Uri url = sceneUrls.Get($"occupancy_grid_{occupancyGridBlockSizes[i]}.png");
+            occupancyGridData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
+            File.WriteAllBytes(path, occupancyGridData);
+        }
+
+        Texture2D occupancyGridImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
+        occupancyGridImage.filterMode = FilterMode.Point;
+        occupancyGridImage.wrapMode = TextureWrapMode.Clamp;
+        occupancyGridImage.LoadImage(occupancyGridData);
+
+        return occupancyGridImage;
+    }
+
+    private static async Task<Texture2D[]> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+        List<Task<Texture2D>> occupancyGridTasks = new List<Task<Texture2D>>();
+
+        for (int i = 0; i < occupancyGridBlockSizes.Length; i++) {
+            Task<Texture2D> t = DownloadOccupancyGridPNGAsync(sceneUrls, scene, i);
+            occupancyGridTasks.Add(t);
+        }
+
+        Texture2D[] results = await Task.WhenAll(occupancyGridTasks);
+        return results;
+    }
 
     private static async Task ImportAssetsAsync(MERFScene scene) {
         string objName = scene.String();
@@ -193,11 +216,11 @@ public class MERFImporter {
         var sceneUrls = await DownloadSceneUrlsAsync(scene);
         EditorUtility.DisplayProgressBar(LoadingTitle, $"{DownloadInfo}'{objName}'...", 0.2f);
 
-        var sceneParams = await DownloadSceneParamsAsync(sceneUrls, scene);
+        SceneParams sceneParams = await DownloadSceneParamsAsync(sceneUrls, scene);
 
         int numTextures = occupancyGridBlockSizes.Length;
 
-        List<Task> occupancyGridTasks = new List<Task>();
+        await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
 
         // downloads 3D slices to temp directory
         //var atlasTask = DownloadAtlasIndexDataAsync(scene);
