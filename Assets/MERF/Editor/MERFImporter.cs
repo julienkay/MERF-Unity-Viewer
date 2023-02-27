@@ -2,7 +2,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Policy;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -212,9 +211,10 @@ public class MERFImporter {
             File.WriteAllBytes(path, occupancyGridData);
         }
 
-        Texture2D occupancyGridImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
-        occupancyGridImage.filterMode = FilterMode.Point;
-        occupancyGridImage.wrapMode = TextureWrapMode.Clamp;
+        Texture2D occupancyGridImage = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false, linear: true) {
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp
+        };
         occupancyGridImage.LoadImage(occupancyGridData);
 
         return occupancyGridImage;
@@ -233,9 +233,10 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
-        atlasIndexImage.filterMode = FilterMode.Point;
-        atlasIndexImage.wrapMode = TextureWrapMode.Clamp;
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true) {
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp
+        };
         atlasIndexImage.LoadImage(atlasIndexData);
 
         return atlasIndexImage;
@@ -266,9 +267,10 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
-        atlasIndexImage.filterMode = FilterMode.Point;
-        atlasIndexImage.wrapMode = TextureWrapMode.Clamp;
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true) {
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp
+        };
         atlasIndexImage.LoadImage(atlasIndexData);
 
         return atlasIndexImage;
@@ -298,12 +300,68 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
-        atlasIndexImage.filterMode = FilterMode.Point;
-        atlasIndexImage.wrapMode = TextureWrapMode.Clamp;
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true) {
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp
+        };
         atlasIndexImage.LoadImage(atlasIndexData);
 
         return atlasIndexImage;
+    }
+
+    private static async Task<Texture2D[]> DownloadRGBVolumeDataAsync(MERFSources sceneUrls, MERFScene scene, SceneParams sceneParams) {
+        Texture2D[] rgbVolumeArray = new Texture2D[sceneParams.NumSlices];
+        for (int i = 0; i < sceneParams.NumSlices; i++) {
+            string path = GetRGBVolumeCachePath(scene, i);
+            byte[] rgbVolumeData;
+
+            if (File.Exists(path)) {
+                // file is already downloaded
+                rgbVolumeData = File.ReadAllBytes(path);
+            } else {
+                Uri url = sceneUrls.GetRGBVolumeUrl(i);
+                rgbVolumeData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
+                File.WriteAllBytes(path, rgbVolumeData);
+            }
+
+            Texture2D rgbVolumeImage = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false, linear: true) {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                alphaIsTransparency = true
+            };
+            rgbVolumeImage.LoadImage(rgbVolumeData);
+            rgbVolumeArray[i] = rgbVolumeImage;
+        }
+
+        return rgbVolumeArray;
+    }
+
+    private static async Task<Texture2D[]> DownloadFeatureVolumeDataAsync(MERFSources sceneUrls, MERFScene scene, SceneParams sceneParams) {
+        Texture2D[] featureVolumeArray = new Texture2D[sceneParams.NumSlices];
+
+        for (int i = 0; i < sceneParams.NumSlices; i++) {
+            string path = GetFeatureVolumeCachePath(scene, i);
+            byte[] featureVolumeData;
+
+            if (File.Exists(path)) {
+                // file is already downloaded
+                featureVolumeData = File.ReadAllBytes(path);
+            } else {
+                Uri url = sceneUrls.GetFeatureVolumeUrl(i);
+                featureVolumeData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
+                Debug.Log("feature " + i);
+                File.WriteAllBytes(path, featureVolumeData);
+            }
+
+            Texture2D featureVolumeImage = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false, linear: true) {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            featureVolumeImage.LoadImage(featureVolumeData);
+            featureVolumeArray[i] = featureVolumeImage;
+        }
+
+        return featureVolumeArray;
     }
 
     private static async Task ImportAssetsAsync(MERFScene scene) {
@@ -320,7 +378,7 @@ public class MERFImporter {
         await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
 
         bool useSparseGrid = sceneParams.VoxelSize > 0;
-        Task atlasIndexTask;
+        Task<Texture2D> atlasIndexTask;
         if (useSparseGrid) {
             // Load the indirection grid.
             atlasIndexTask = DownloadAtlasIndexPNGAsync(sceneUrls, scene);
@@ -336,17 +394,15 @@ public class MERFImporter {
         }
 
         // downloads 3D slices to temp directory
-        //var atlasTask = DownloadAtlasIndexDataAsync(scene);
-        //var rgbVolumeTask = DownloadRGBVolumeDataAsync(scene, sceneParams);
-        //var featureVolumeTask = DownloadFeatureVolumeDataAsync(scene, sceneParams);
+        var rgbVolumeTask = DownloadRGBVolumeDataAsync(sceneUrls, scene, sceneParams);
+        var featureVolumeTask = DownloadFeatureVolumeDataAsync(sceneUrls, scene, sceneParams);
 
-        /*Texture2D atlasIndexData = await atlasTask;
         Texture2D[] rgbImages = await rgbVolumeTask;
         Texture2D[] featureImages = await featureVolumeTask;
 
         EditorUtility.DisplayProgressBar(ProcessingTitle, $"{AssemblyInfo}'{objName}'...", 0.3f);
 
-        Initialize(scene, atlasIndexData, rgbImages, featureImages, sceneParams);*/
+        /*Initialize(scene, atlasIndexData, rgbImages, featureImages, sceneParams);*/
 
         EditorUtility.ClearProgressBar();
     }

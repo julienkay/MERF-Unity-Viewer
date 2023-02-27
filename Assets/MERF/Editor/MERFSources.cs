@@ -12,6 +12,15 @@ public class MERFSources {
     public Uri Get(string key) {
         return Sources[key];
     }
+    public Uri GetRGBVolumeUrl(int i) {
+        string fileName = $"rgba_{i:D3}.png";
+        return Get(fileName);
+    }
+    public Uri GetFeatureVolumeUrl(int i) {
+        string fileName = $"feature_{i:D3}.png";
+        return Get(fileName);
+    }
+
 }
 
 public class MERFSourcesConverter : JsonConverter {
