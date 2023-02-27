@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Policy;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -131,6 +132,16 @@ public class MERFImporter {
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
+    private static string GetPlaneRGBCachePath(MERFScene scene, int i) {
+        string path = Path.Combine(GetCacheLocation(scene), $"plane_rgb_and_density_{i}.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        return path;
+    }
+    private static string GetPlaneFeaturesCachePath(MERFScene scene, int i) {
+        string path = Path.Combine(GetCacheLocation(scene), $"plane_features_{i}.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        return path;
+    }
     private static string GetRGBVolumeCachePath(MERFScene scene, int i) {
         string path = Path.Combine(GetCacheLocation(scene), $"rgba_{i:D3}.png");
         Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -209,7 +220,7 @@ public class MERFImporter {
         return occupancyGridImage;
     }
 
-    private static async Task<Texture2D> DownloadatlasIndexPNGAsync(MERFSources sceneUrls, MERFScene scene) {
+    private static async Task<Texture2D> DownloadAtlasIndexPNGAsync(MERFSources sceneUrls, MERFScene scene) {
         string path = GetAtlasIndexCachePath(scene);
         byte[] atlasIndexData;
 
@@ -218,6 +229,71 @@ public class MERFImporter {
             atlasIndexData = File.ReadAllBytes(path);
         } else {
             Uri url = sceneUrls.Get("atlas_indices.png");
+            atlasIndexData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
+            File.WriteAllBytes(path, atlasIndexData);
+        }
+
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
+        atlasIndexImage.filterMode = FilterMode.Point;
+        atlasIndexImage.wrapMode = TextureWrapMode.Clamp;
+        atlasIndexImage.LoadImage(atlasIndexData);
+
+        return atlasIndexImage;
+    }
+
+    private static async Task<Texture2D[]> DownloadPlaneRGBPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+        List<Task<Texture2D>> planeTasks = new List<Task<Texture2D>>();
+
+        for (int plane_idx = 0; plane_idx < 3; ++plane_idx) {
+            Task<Texture2D> t = DownloadPlaneRGBPNGAsync(sceneUrls, scene, plane_idx);
+            planeTasks.Add(t);
+        }
+
+        Texture2D[] results = await Task.WhenAll(planeTasks);
+        return results;
+    }
+
+    private static async Task<Texture2D> DownloadPlaneRGBPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
+        string path = GetPlaneRGBCachePath(scene, i);
+        byte[] atlasIndexData;
+
+        if (File.Exists(path)) {
+            // file is already downloaded
+            atlasIndexData = File.ReadAllBytes(path);
+        } else {
+            Uri url = sceneUrls.Get($"plane_rgb_and_density_{i}.png");
+            atlasIndexData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
+            File.WriteAllBytes(path, atlasIndexData);
+        }
+
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
+        atlasIndexImage.filterMode = FilterMode.Point;
+        atlasIndexImage.wrapMode = TextureWrapMode.Clamp;
+        atlasIndexImage.LoadImage(atlasIndexData);
+
+        return atlasIndexImage;
+    }
+    private static async Task<Texture2D[]> DownloadPlaneFeaturesPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+        List<Task<Texture2D>> planeTasks = new List<Task<Texture2D>>();
+
+        for (int plane_idx = 0; plane_idx < 3; ++plane_idx) {
+            Task<Texture2D> t = DownloadPlaneRGBPNGAsync(sceneUrls, scene, plane_idx);
+            planeTasks.Add(t);
+        }
+
+        Texture2D[] results = await Task.WhenAll(planeTasks);
+        return results;
+    }
+
+    private static async Task<Texture2D> DownloadPlaneFeaturesRGBPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
+        string path = GetPlaneFeaturesCachePath(scene, i);
+        byte[] atlasIndexData;
+
+        if (File.Exists(path)) {
+            // file is already downloaded
+            atlasIndexData = File.ReadAllBytes(path);
+        } else {
+            Uri url = sceneUrls.Get($"plane_features_{i}.png");
             atlasIndexData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
             File.WriteAllBytes(path, atlasIndexData);
         }
@@ -247,8 +323,16 @@ public class MERFImporter {
         Task atlasIndexTask;
         if (useSparseGrid) {
             // Load the indirection grid.
-            atlasIndexTask = DownloadatlasIndexPNGAsync(sceneUrls, scene);
+            atlasIndexTask = DownloadAtlasIndexPNGAsync(sceneUrls, scene);
             numTextures += 2 * sceneParams.NumSlices;
+        }
+
+        List<Task> planeTasks = new List<Task>();
+        bool useTriplane = true; //sceneParams.ContainsKey("voxel_size_triplane");
+        if (useTriplane) {
+            numTextures += 6;
+            planeTasks.Add(DownloadPlaneRGBPNGsAsync(sceneUrls, scene));
+            planeTasks.Add(DownloadPlaneFeaturesPNGsAsync(sceneUrls, scene));
         }
 
         // downloads 3D slices to temp directory
