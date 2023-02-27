@@ -176,6 +176,18 @@ public class MERFImporter {
         return sceneParams;
     }
 
+    private static async Task<Texture2D[]> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+        List<Task<Texture2D>> occupancyGridTasks = new List<Task<Texture2D>>();
+
+        for (int i = 0; i < occupancyGridBlockSizes.Length; i++) {
+            Task<Texture2D> t = DownloadOccupancyGridPNGAsync(sceneUrls, scene, i);
+            occupancyGridTasks.Add(t);
+        }
+
+        Texture2D[] results = await Task.WhenAll(occupancyGridTasks);
+        return results;
+    }
+
     private static async Task<Texture2D> DownloadOccupancyGridPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
         string path = GetOccupancyGridCachePath(scene, occupancyGridBlockSizes[i]);
         byte[] occupancyGridData;
@@ -197,30 +209,47 @@ public class MERFImporter {
         return occupancyGridImage;
     }
 
-    private static async Task<Texture2D[]> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
-        List<Task<Texture2D>> occupancyGridTasks = new List<Task<Texture2D>>();
+    private static async Task<Texture2D> DownloadatlasIndexPNGAsync(MERFSources sceneUrls, MERFScene scene) {
+        string path = GetAtlasIndexCachePath(scene);
+        byte[] atlasIndexData;
 
-        for (int i = 0; i < occupancyGridBlockSizes.Length; i++) {
-            Task<Texture2D> t = DownloadOccupancyGridPNGAsync(sceneUrls, scene, i);
-            occupancyGridTasks.Add(t);
+        if (File.Exists(path)) {
+            // file is already downloaded
+            atlasIndexData = File.ReadAllBytes(path);
+        } else {
+            Uri url = sceneUrls.Get("atlas_indices.png");
+            atlasIndexData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
+            File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D[] results = await Task.WhenAll(occupancyGridTasks);
-        return results;
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true);
+        atlasIndexImage.filterMode = FilterMode.Point;
+        atlasIndexImage.wrapMode = TextureWrapMode.Clamp;
+        atlasIndexImage.LoadImage(atlasIndexData);
+
+        return atlasIndexImage;
     }
 
     private static async Task ImportAssetsAsync(MERFScene scene) {
         string objName = scene.String();
 
         EditorUtility.DisplayProgressBar(LoadingTitle, $"{DownloadInfo}'{objName}'...", 0.1f);
-        var sceneUrls = await DownloadSceneUrlsAsync(scene);
+        MERFSources sceneUrls = await DownloadSceneUrlsAsync(scene);
         EditorUtility.DisplayProgressBar(LoadingTitle, $"{DownloadInfo}'{objName}'...", 0.2f);
 
         SceneParams sceneParams = await DownloadSceneParamsAsync(sceneUrls, scene);
 
-        int numTextures = occupancyGridBlockSizes.Length;
+        long numTextures = occupancyGridBlockSizes.Length;
 
         await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
+
+        bool useSparseGrid = sceneParams.VoxelSize > 0;
+        Task atlasIndexTask;
+        if (useSparseGrid) {
+            // Load the indirection grid.
+            atlasIndexTask = DownloadatlasIndexPNGAsync(sceneUrls, scene);
+            numTextures += 2 * sceneParams.NumSlices;
+        }
 
         // downloads 3D slices to temp directory
         //var atlasTask = DownloadAtlasIndexDataAsync(scene);
