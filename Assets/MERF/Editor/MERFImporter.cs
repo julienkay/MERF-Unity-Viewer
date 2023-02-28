@@ -389,13 +389,14 @@ public class MERFImporter {
 
         // load data into 3D textures
         NativeArray<byte> rawAtlasIndexData = atlasIndexImage.GetRawTextureData<byte>();
-
-        // need to extract RGB valuesm manually, because Unity doesn't allow loading PNGs as RGB24 -.-
+        Debug.Log(atlasIndexImage.format);
+        // we need to separate/extract RGB values manually, because Unity doesn't allow loading PNGs as RGB24 -.-
+        // rawatlasIndexData is in ARGB format
         NativeArray<byte> atlasVolumeData = new NativeArray<byte>(3 * width * height * depth, Allocator.Temp);
         for (int i = 0, j = 0; i < rawAtlasIndexData.Length; i += 4, j += 3) {
-            atlasVolumeData[j    ] = rawAtlasIndexData[i    ];
-            atlasVolumeData[j + 1] = rawAtlasIndexData[i + 1];
-            atlasVolumeData[j + 2] = rawAtlasIndexData[i + 2];
+            atlasVolumeData[j    ] = rawAtlasIndexData[i + 1];
+            atlasVolumeData[j + 1] = rawAtlasIndexData[i + 2];
+            atlasVolumeData[j + 2] = rawAtlasIndexData[i + 3];
         }
 
         atlasIndex3DVolume.SetPixelData(atlasVolumeData, 0);
