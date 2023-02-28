@@ -1,3 +1,4 @@
+using BigGustave;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -186,38 +187,44 @@ public class MERFImporter {
         return sceneParams;
     }
 
-    private static async Task<Texture2D[]> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
-        List<Task<Texture2D>> occupancyGridTasks = new List<Task<Texture2D>>();
+    private static async Task<byte[][]> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+        List<Task<byte[]>> occupancyGridTasks = new List<Task<byte[]>>();
 
         for (int i = 0; i < occupancyGridBlockSizes.Length; i++) {
-            Task<Texture2D> t = DownloadOccupancyGridPNGAsync(sceneUrls, scene, i);
+            Task<byte[]> t = DownloadOccupancyGridPNGAsync(sceneUrls, scene, i);
             occupancyGridTasks.Add(t);
         }
 
-        Texture2D[] results = await Task.WhenAll(occupancyGridTasks);
+        byte[][] results = await Task.WhenAll(occupancyGridTasks);
         return results;
     }
 
-    private static async Task<Texture2D> DownloadOccupancyGridPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
+    private static async Task<byte[]> DownloadOccupancyGridPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
         string path = GetOccupancyGridCachePath(scene, occupancyGridBlockSizes[i]);
-        byte[] occupancyGridData;
 
-        if (File.Exists(path)) {
-            // file is already downloaded
-            occupancyGridData = File.ReadAllBytes(path);
-        } else {
+        if (!File.Exists(path)) {
             Uri url = sceneUrls.Get($"occupancy_grid_{occupancyGridBlockSizes[i]}.png");
-            occupancyGridData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
-            File.WriteAllBytes(path, occupancyGridData);
+            byte[] pngData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
+            File.WriteAllBytes(path, pngData);
         }
 
-        Texture2D occupancyGridImage = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false, linear: true) {
-            filterMode = FilterMode.Point,
-            wrapMode = TextureWrapMode.Clamp
-        };
-        occupancyGridImage.LoadImage(occupancyGridData);
+        // occupancy grid .pngs have resolutions up to 16384 which Unity
+        // doesn't let us decode into Texture2Ds, so we use a 3rd party lib.
+        byte[] occupancyGridData;
+        using (var stream = File.OpenRead(path)) {
+            Png image = Png.Open(stream);
+            int size = image.Width * image.Height;Debug.Log(size);
+            occupancyGridData = new byte[size];
+            for (int y = 0; y < image.Height; y++) {
+                for (int x = 0; x < image.Width; x++) {
+                    int index = image.Width * y + x;
+                    Pixel pixel = image.GetPixel(x, y);
+                    occupancyGridData[x] = pixel.R;
+                }
+            }
+        }
 
-        return occupancyGridImage;
+        return occupancyGridData;
     }
 
     private static async Task<Texture2D> DownloadAtlasIndexPNGAsync(MERFSources sceneUrls, MERFScene scene) {
