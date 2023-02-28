@@ -232,7 +232,7 @@ public class MERFImporter {
                 for (int x = 0; x < image.Width; x++) {
                     int index = image.Width * y + x;
                     Pixel pixel = image.GetPixel(x, y);
-                    occupancyGridData[x] = pixel.R;
+                    occupancyGridData[index] = pixel.R;
                 }
             }
         }
