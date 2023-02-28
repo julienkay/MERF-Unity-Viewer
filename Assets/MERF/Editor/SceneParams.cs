@@ -5,52 +5,52 @@ public class SceneParams {
     public double VoxelSize { get; set; }
 
     [JsonProperty("block_size")]
-    public long BlockSize { get; set; }
+    public int BlockSize { get; set; }
 
     [JsonProperty("grid_width")]
-    public long GridWidth { get; set; }
+    public int GridWidth { get; set; }
 
     [JsonProperty("grid_height")]
-    public long GridHeight { get; set; }
+    public int GridHeight { get; set; }
 
     [JsonProperty("grid_depth")]
-    public long GridDepth { get; set; }
+    public int GridDepth { get; set; }
 
     [JsonProperty("atlas_width")]
-    public long AtlasWidth { get; set; }
+    public int AtlasWidth { get; set; }
 
     [JsonProperty("atlas_height")]
-    public long AtlasHeight { get; set; }
+    public int AtlasHeight { get; set; }
 
     [JsonProperty("atlas_depth")]
-    public long AtlasDepth { get; set; }
+    public int AtlasDepth { get; set; }
 
     [JsonProperty("num_slices")]
-    public long NumSlices { get; set; }
+    public int NumSlices { get; set; }
 
     [JsonProperty("slice_depth")]
-    public long SliceDepth { get; set; }
+    public int SliceDepth { get; set; }
 
     [JsonProperty("atlas_blocks_x")]
-    public long AtlasBlocksX { get; set; }
+    public int AtlasBlocksX { get; set; }
 
     [JsonProperty("atlas_blocks_y")]
-    public long AtlasBlocksY { get; set; }
+    public int AtlasBlocksY { get; set; }
 
     [JsonProperty("atlas_blocks_z")]
-    public long AtlasBlocksZ { get; set; }
+    public int AtlasBlocksZ { get; set; }
 
     [JsonProperty("min_x")]
-    public long MinX { get; set; }
+    public float MinX { get; set; }
 
     [JsonProperty("min_y")]
-    public long MinY { get; set; }
+    public float MinY { get; set; }
 
     [JsonProperty("min_z")]
-    public long MinZ { get; set; }
+    public float MinZ { get; set; }
 
     [JsonProperty("worldspace_T_opengl")]
-    public long[][] WorldspaceTOpengl { get; set; }
+    public float[][] WorldspaceTOpengl { get; set; }
 
     [JsonProperty("0_weights")]
     public double[][] _0Weights { get; set; }
@@ -74,22 +74,22 @@ public class SceneParams {
     public double VoxelSizeTriplane { get; set; }
 
     [JsonProperty("plane_width_0")]
-    public long PlaneWidth0 { get; set; }
+    public int PlaneWidth0 { get; set; }
 
     [JsonProperty("plane_height_0")]
-    public long PlaneHeight0 { get; set; }
+    public int PlaneHeight0 { get; set; }
 
     [JsonProperty("plane_width_1")]
-    public long PlaneWidth1 { get; set; }
+    public int PlaneWidth1 { get; set; }
 
     [JsonProperty("plane_height_1")]
-    public long PlaneHeight1 { get; set; }
+    public int PlaneHeight1 { get; set; }
 
     [JsonProperty("plane_width_2")]
-    public long PlaneWidth2 { get; set; }
+    public int PlaneWidth2 { get; set; }
 
     [JsonProperty("plane_height_2")]
-    public long PlaneHeight2 { get; set; }
+    public int PlaneHeight2 { get; set; }
 
     [JsonProperty("format")]
     public string Format { get; set; }

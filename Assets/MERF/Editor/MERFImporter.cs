@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Collections;
 using UnityEditor;
@@ -80,6 +81,21 @@ public class MERFImporter {
 
     private static string GetSceneParamsAssetPath(MERFScene scene) {
         string path = $"{GetBasePath(scene)}/SceneParams/{scene.String()}.asset";
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        return path;
+    }
+    private static string GetPlaneRGBAssetPath(MERFScene scene) {
+        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} RGP Triplane Texture.asset";
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        return path;
+    }
+    private static string GetPlaneDensityAssetPath(MERFScene scene) {
+        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Density Triplane Texture.asset";
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        return path;
+    }
+    private static string GetPlaneFeaturesAssetPath(MERFScene scene) {
+        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Features Triplane Texture.asset";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
@@ -247,11 +263,14 @@ public class MERFImporter {
         return atlasIndexImage;
     }
 
-    private static async Task<Texture2D[]> DownloadPlaneRGBPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+
+    private static async Task<Texture2D[]> DownloadPlanePNGsAsync(MERFSources sceneUrls, MERFScene scene) {
         List<Task<Texture2D>> planeTasks = new List<Task<Texture2D>>();
 
         for (int plane_idx = 0; plane_idx < 3; ++plane_idx) {
             Task<Texture2D> t = DownloadPlaneRGBPNGAsync(sceneUrls, scene, plane_idx);
+            planeTasks.Add(t);
+            t = DownloadPlaneFeaturesRGBPNGAsync(sceneUrls, scene, plane_idx);
             planeTasks.Add(t);
         }
 
@@ -272,24 +291,13 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true) {
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
         };
         atlasIndexImage.LoadImage(atlasIndexData);
 
         return atlasIndexImage;
-    }
-    private static async Task<Texture2D[]> DownloadPlaneFeaturesPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
-        List<Task<Texture2D>> planeTasks = new List<Task<Texture2D>>();
-
-        for (int plane_idx = 0; plane_idx < 3; ++plane_idx) {
-            Task<Texture2D> t = DownloadPlaneRGBPNGAsync(sceneUrls, scene, plane_idx);
-            planeTasks.Add(t);
-        }
-
-        Texture2D[] results = await Task.WhenAll(planeTasks);
-        return results;
     }
 
     private static async Task<Texture2D> DownloadPlaneFeaturesRGBPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
@@ -305,7 +313,7 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true) {
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
         };
@@ -368,6 +376,9 @@ public class MERFImporter {
         return featureVolumeArray;
     }
 
+    /// <summary>
+    /// Loads the indirection grid.
+    /// </summary>
     private static void CreateAtlasIndexTexture(MERFScene scene, Texture2D atlasIndexImage, SceneParams sceneParams) {
         int width = (int)Mathf.Ceil(sceneParams.GridWidth / (float)sceneParams.BlockSize);
         int height = (int)Mathf.Ceil(sceneParams.GridHeight / (float)sceneParams.BlockSize);
@@ -389,7 +400,7 @@ public class MERFImporter {
 
         // load data into 3D textures
         NativeArray<byte> rawAtlasIndexData = atlasIndexImage.GetRawTextureData<byte>();
-        Debug.Log(atlasIndexImage.format);
+
         // we need to separate/extract RGB values manually, because Unity doesn't allow loading PNGs as RGB24 -.-
         // rawatlasIndexData is in ARGB format
         NativeArray<byte> atlasVolumeData = new NativeArray<byte>(3 * width * height * depth, Allocator.Temp);
@@ -404,16 +415,68 @@ public class MERFImporter {
         atlasVolumeData.Dispose();
 
         AssetDatabase.CreateAsset(atlasIndex3DVolume, atlasAssetPath);
+    }
 
-        string materialAssetPath = GetMaterialAssetPath(scene);
-        Material material = AssetDatabase.LoadAssetAtPath<Material>(materialAssetPath);
-        material.SetTexture("mapIndex", atlasIndex3DVolume);
-        AssetDatabase.SaveAssets();
+    private static void CreateTriplaneRGBTextureArrays(MERFScene scene, Texture2D[] planeImages, SceneParams sceneParams) {
+        //if (useTriplane)
+        int planeWidth = sceneParams.PlaneWidth0;
+        int planeHeight = sceneParams.PlaneHeight0;
+        Vector2 planeSize = new Vector2(planeWidth, planeHeight);
+        Texture2DArray planeRgbTexture       = CreateTextureArray(planeWidth, planeHeight, TextureFormat.RGB24);
+        Texture2DArray planeDensityTexture   = CreateTextureArray(planeWidth, planeHeight, TextureFormat.R8);
+        Texture2DArray planeFeaturesTexture  = CreateTextureArray(planeWidth, planeHeight, TextureFormat.RGBA32);
+
+        NativeArray<byte> planeRgbStack      = new NativeArray<byte>(planeWidth * planeHeight * 3, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+        NativeArray<byte> planeDensityStack  = new NativeArray<byte>(planeWidth * planeHeight    , Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+        NativeArray<byte> planeFeaturesStack = new NativeArray<byte>(planeWidth * planeHeight * 4, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+
+        for (int plane_idx = 0; plane_idx < 3; plane_idx++) {
+            Texture2D planeRgbAndDensity = planeImages[2 * plane_idx];
+            Texture2D planeFeatures      = planeImages[2 * plane_idx + 1];
+            // in ARGB format
+            NativeArray<byte> rgbAndDensity = planeRgbAndDensity.GetRawTextureData<byte>();
+            NativeArray<byte> features = planeFeatures.GetRawTextureData<byte>();
+
+            for (int j = 0; j < planeWidth * planeHeight; j++) {
+                planeRgbStack[j * 3 + 0] = rgbAndDensity[j * 4 + 1];
+                planeRgbStack[j * 3 + 1] = rgbAndDensity[j * 4 + 2];
+                planeRgbStack[j * 3 + 2] = rgbAndDensity[j * 4 + 3];
+                planeDensityStack[j] = rgbAndDensity[j * 4];
+                planeFeaturesStack[j * 4    ] = features[j * 4 + 1];
+                planeFeaturesStack[j * 4 + 1] = features[j * 4 + 2];
+                planeFeaturesStack[j * 4 + 2] = features[j * 4 + 3];
+                planeFeaturesStack[j * 4 + 3] = features[j * 4    ];
+            }
+
+            planeRgbTexture.SetPixelData(planeRgbStack, 0, plane_idx);
+            planeDensityTexture.SetPixelData(planeDensityStack, 0, plane_idx);
+            planeFeaturesTexture.SetPixelData(planeFeaturesStack, 0, plane_idx);
+        }
+
+        planeRgbTexture.Apply();
+        planeDensityTexture.Apply();
+        planeFeaturesTexture.Apply();
+        planeRgbStack.Dispose();
+        planeDensityStack.Dispose();
+        planeFeaturesStack.Dispose();
+
+        AssetDatabase.CreateAsset(planeRgbTexture, GetPlaneRGBAssetPath(scene));
+        AssetDatabase.CreateAsset(planeDensityTexture , GetPlaneDensityAssetPath(scene));
+        AssetDatabase.CreateAsset(planeFeaturesTexture, GetPlaneFeaturesAssetPath(scene));
+    }
+
+    private static Texture2DArray CreateTextureArray(int width, int height, TextureFormat format) {
+        return new Texture2DArray(width, height, 3, format, mipChain: false) {
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
     }
 
     private static async void ImportAssetsAsync(MERFScene scene) {
         string objName = scene.String();
 
+        // first, make sure texture resources are downloaded to temp directory
+        // then load them into memory 
         int progressId = Progress.Start(LoadingTitle, $"{DownloadInfo}'{objName}'...");
         MERFSources sceneUrls = await DownloadSceneUrlsAsync(scene);
         Progress.Report(progressId, 0.2f);
@@ -432,25 +495,28 @@ public class MERFImporter {
             numTextures += 2 * sceneParams.NumSlices;
         }
 
-        List<Task> planeTasks = new List<Task>();
+        Texture2D[] planeImages = null;
         bool useTriplane = true; //sceneParams.ContainsKey("voxel_size_triplane");
         if (useTriplane) {
             numTextures += 6;
-            planeTasks.Add(DownloadPlaneRGBPNGsAsync(sceneUrls, scene));
-            planeTasks.Add(DownloadPlaneFeaturesPNGsAsync(sceneUrls, scene));
+            planeImages = await DownloadPlanePNGsAsync(sceneUrls, scene);
         }
 
-        // downloads 3D slices to temp directory
         var rgbVolumeTask = DownloadRGBVolumeDataAsync(sceneUrls, scene, sceneParams);
         var featureVolumeTask = DownloadFeatureVolumeDataAsync(sceneUrls, scene, sceneParams);
 
         Texture2D[] rgbImages = await rgbVolumeTask;
         Texture2D[] featureImages = await featureVolumeTask;
 
+        // create 3D volumes and other assets
         Progress.Report(progressId, 0.3f, $"{AssemblyInfo}'{objName}'...");
 
         Texture2D atlasIndexData = await atlasIndexTask;
         CreateAtlasIndexTexture(scene, atlasIndexData, sceneParams);
+
+        Progress.Report(progressId, 0.4f, $"{AssemblyInfo}'{objName}'...");
+
+        CreateTriplaneRGBTextureArrays(scene, planeImages, sceneParams);
 
         /*Initialize(scene, atlasIndexData, rgbImages, featureImages, sceneParams);*/
 
