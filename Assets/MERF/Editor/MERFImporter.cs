@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using Unity.Collections;
 using UnityEditor;
@@ -85,7 +84,7 @@ public class MERFImporter {
         return path;
     }
     private static string GetPlaneRGBAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} RGP Triplane Texture.asset";
+        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} RGB Triplane Texture.asset";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
@@ -96,6 +95,11 @@ public class MERFImporter {
     }
     private static string GetPlaneFeaturesAssetPath(MERFScene scene) {
         string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Features Triplane Texture.asset";
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        return path;
+    }
+    private static string GetOccupancyGridAssetPath(MERFScene scene, int i) {
+        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Occupancy Grid {i} Texture.asset";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
@@ -221,7 +225,7 @@ public class MERFImporter {
             File.WriteAllBytes(path, pngData);
         }
 
-        // occupancy grid .pngs have resolutions up to 16384 which Unity
+        // occupancy grid .pngs have resolutions up to 16384, which Unity
         // doesn't let us decode into Texture2Ds, so we use a 3rd party lib.
         byte[] occupancyGridData;
         using (var stream = File.OpenRead(path)) {
@@ -392,11 +396,8 @@ public class MERFImporter {
         }
 
         // initialize 3D texture
-        Texture3D atlasIndex3DVolume = new Texture3D(width, height, depth, TextureFormat.RGB24, mipChain: false) {
-            filterMode = FilterMode.Point,
-            wrapMode = TextureWrapMode.Clamp,
-            name = Path.GetFileNameWithoutExtension(atlasAssetPath),
-        };
+        Texture3D atlasIndex3DVolume = CreateVolumeTexture(width, height, depth, TextureFormat.RGB24, FilterMode.Point);
+        atlasIndex3DVolume.name = Path.GetFileNameWithoutExtension(atlasAssetPath);
 
         // load data into 3D textures
         NativeArray<byte> rawAtlasIndexData = atlasIndexImage.GetRawTextureData<byte>();
@@ -417,6 +418,9 @@ public class MERFImporter {
         AssetDatabase.CreateAsset(atlasIndex3DVolume, atlasAssetPath);
     }
 
+    /// <summary>
+    /// Load triplanes.
+    /// </summary>
     private static void CreateTriplaneRGBTextureArrays(MERFScene scene, Texture2D[] planeImages, SceneParams sceneParams) {
         //if (useTriplane)
         int planeWidth = sceneParams.PlaneWidth0;
@@ -472,6 +476,46 @@ public class MERFImporter {
         };
     }
 
+    private static void CreateOccupancyGridTexture(MERFScene scene, byte[][] occupancyGrid, SceneParams sceneParams) {
+        int baseGridWidth;
+        double baseVoxelSize;
+        if (true) {  //if (useTriplane)
+            baseGridWidth = sceneParams.PlaneWidth0;
+            baseVoxelSize = sceneParams.VoxelSizeTriplane;
+        } else {
+            baseGridWidth = sceneParams.GridWidth;
+            baseVoxelSize = sceneParams.VoxelSize;
+        }
+        Texture3D[] occupancyGridTextures = new Texture3D[occupancyGridBlockSizes.Length];
+        Vector3Int[] occupancyGridSizes = new Vector3Int[occupancyGridBlockSizes.Length];
+        double[] occupancyVoxelSizes = new double[occupancyGridBlockSizes.Length];
+        for (int occupancyGridIndex = 0; occupancyGridIndex < occupancyGridBlockSizes.Length; occupancyGridIndex++) {
+            string occupancyAssetPath = GetOccupancyGridAssetPath(scene, occupancyGridIndex);
+            int occupancyGridBlockSize = occupancyGridBlockSizes[occupancyGridIndex];
+            // Assuming width = height = depth which typically holds when employing
+            // scene contraction
+            int w = (int)Math.Ceiling(baseGridWidth / (double)occupancyGridBlockSize);
+            int h = w;
+            int d = w;
+            Texture3D occupancyGridTexture = CreateVolumeTexture(w, h, d, TextureFormat.R8, FilterMode.Point);
+            occupancyGridTexture.name = Path.GetFileNameWithoutExtension(occupancyAssetPath);
+            occupancyGridTextures[occupancyGridIndex] = occupancyGridTexture;
+            occupancyGridSizes[occupancyGridIndex] = new Vector3Int(w, h, d);
+            occupancyVoxelSizes[occupancyGridIndex] = baseVoxelSize * occupancyGridBlockSize;
+            byte[] occupancyGridImageFourChannels = occupancyGrid[occupancyGridIndex];
+            occupancyGridTexture.SetPixelData(occupancyGridImageFourChannels, 0);
+            occupancyGridTexture.Apply();
+            AssetDatabase.CreateAsset(occupancyGridTexture, occupancyAssetPath);
+        }
+    }
+
+    private static Texture3D CreateVolumeTexture(int width, int height, int depth, TextureFormat format, FilterMode filterMode) {
+        return new Texture3D(width, height, depth, format, mipChain: false) {
+            filterMode = filterMode,
+            wrapMode = TextureWrapMode.Clamp,
+        };
+    }
+
     private static async void ImportAssetsAsync(MERFScene scene) {
         string objName = scene.String();
 
@@ -485,7 +529,7 @@ public class MERFImporter {
 
         long numTextures = occupancyGridBlockSizes.Length;
 
-        await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
+        byte[][] occupancyGrid = await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
 
         bool useSparseGrid = sceneParams.VoxelSize > 0;
         Task<Texture2D> atlasIndexTask = null;
@@ -517,6 +561,10 @@ public class MERFImporter {
         Progress.Report(progressId, 0.4f, $"{AssemblyInfo}'{objName}'...");
 
         CreateTriplaneRGBTextureArrays(scene, planeImages, sceneParams);
+
+        Progress.Report(progressId, 0.5f, $"{AssemblyInfo}'{objName}'...");
+
+        CreateOccupancyGridTexture(scene, occupancyGrid, sceneParams);
 
         /*Initialize(scene, atlasIndexData, rgbImages, featureImages, sceneParams);*/
 
