@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
 using static WebRequestAsyncUtility;
@@ -18,13 +19,13 @@ public class MERFImporter {
     private static readonly string DownloadAllMessage = "You are about to download all the demo scenes from the MERF paper!\nDownloading/Processing might take a few minutes and quite a bit of RAM & disk space.\n\nClick 'OK', if you wish to continue.";
 
     [MenuItem("MERF/Asset Downloads/Download All", false, -20)]
-    public static async void DownloadAllAssets() {
+    public static void DownloadAllAssets() {
         if (!EditorUtility.DisplayDialog(DownloadAllTitle, DownloadAllMessage, "OK")) {
             return;
         }
 
         foreach (var scene in (MERFScene[])Enum.GetValues(typeof(MERFScene))) {
-            await DownloadAssets(scene);
+            ImportAssetsAsync(scene);
         }
     }
 
@@ -55,10 +56,6 @@ public class MERFImporter {
     [MenuItem("MERF/Asset Downloads/Kitchen Counter", false, 0)]
     public static void DownloadKitchenCounterAssets() {
         ImportAssetsAsync(MERFScene.KitchenCounter);
-    }
-
-    private static async Task DownloadAssets(MERFScene scene) {
-        await ImportAssetsAsync(scene);
     }
 
     private const string BASE_URL = "https://merf42.github.io/viewer/scenes/";
@@ -213,7 +210,7 @@ public class MERFImporter {
         byte[] occupancyGridData;
         using (var stream = File.OpenRead(path)) {
             Png image = Png.Open(stream);
-            int size = image.Width * image.Height;Debug.Log(size);
+            int size = image.Width * image.Height;
             occupancyGridData = new byte[size];
             for (int y = 0; y < image.Height; y++) {
                 for (int x = 0; x < image.Width; x++) {
@@ -240,6 +237,7 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
+        //!NOTE: Unity does NOT load this as an RGB24 texture. PNGs are always loaded as ARGB32.
         Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true) {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
@@ -356,7 +354,6 @@ public class MERFImporter {
             } else {
                 Uri url = sceneUrls.GetFeatureVolumeUrl(i);
                 featureVolumeData = await WebRequestBinaryAsync.SendWebRequestAsync(url);
-                Debug.Log("feature " + i);
                 File.WriteAllBytes(path, featureVolumeData);
             }
 
@@ -371,12 +368,54 @@ public class MERFImporter {
         return featureVolumeArray;
     }
 
-    private static async Task ImportAssetsAsync(MERFScene scene) {
+    private static void CreateAtlasIndexTexture(MERFScene scene, Texture2D atlasIndexImage, SceneParams sceneParams) {
+        int width = (int)Mathf.Ceil(sceneParams.GridWidth / (float)sceneParams.BlockSize);
+        int height = (int)Mathf.Ceil(sceneParams.GridHeight / (float)sceneParams.BlockSize);
+        int depth = (int)Mathf.Ceil(sceneParams.GridDepth / (float)sceneParams.BlockSize);
+
+        string atlasAssetPath = GetAtlasTextureAssetPath(scene);
+
+        // already exists
+        if (File.Exists(atlasAssetPath)) {
+            return;
+        }
+
+        // initialize 3D texture
+        Texture3D atlasIndex3DVolume = new Texture3D(width, height, depth, TextureFormat.RGB24, mipChain: false) {
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp,
+            name = Path.GetFileNameWithoutExtension(atlasAssetPath),
+        };
+
+        // load data into 3D textures
+        NativeArray<byte> rawAtlasIndexData = atlasIndexImage.GetRawTextureData<byte>();
+
+        // need to extract RGB valuesm manually, because Unity doesn't allow loading PNGs as RGB24 -.-
+        NativeArray<byte> atlasVolumeData = new NativeArray<byte>(3 * width * height * depth, Allocator.Temp);
+        for (int i = 0, j = 0; i < rawAtlasIndexData.Length; i += 4, j += 3) {
+            atlasVolumeData[j    ] = rawAtlasIndexData[i    ];
+            atlasVolumeData[j + 1] = rawAtlasIndexData[i + 1];
+            atlasVolumeData[j + 2] = rawAtlasIndexData[i + 2];
+        }
+
+        atlasIndex3DVolume.SetPixelData(atlasVolumeData, 0);
+        atlasIndex3DVolume.Apply();
+        atlasVolumeData.Dispose();
+
+        AssetDatabase.CreateAsset(atlasIndex3DVolume, atlasAssetPath);
+
+        string materialAssetPath = GetMaterialAssetPath(scene);
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(materialAssetPath);
+        material.SetTexture("mapIndex", atlasIndex3DVolume);
+        AssetDatabase.SaveAssets();
+    }
+
+    private static async void ImportAssetsAsync(MERFScene scene) {
         string objName = scene.String();
 
-        EditorUtility.DisplayProgressBar(LoadingTitle, $"{DownloadInfo}'{objName}'...", 0.1f);
+        int progressId = Progress.Start(LoadingTitle, $"{DownloadInfo}'{objName}'...");
         MERFSources sceneUrls = await DownloadSceneUrlsAsync(scene);
-        EditorUtility.DisplayProgressBar(LoadingTitle, $"{DownloadInfo}'{objName}'...", 0.2f);
+        Progress.Report(progressId, 0.2f);
 
         SceneParams sceneParams = await DownloadSceneParamsAsync(sceneUrls, scene);
 
@@ -385,7 +424,7 @@ public class MERFImporter {
         await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
 
         bool useSparseGrid = sceneParams.VoxelSize > 0;
-        Task<Texture2D> atlasIndexTask;
+        Task<Texture2D> atlasIndexTask = null;
         if (useSparseGrid) {
             // Load the indirection grid.
             atlasIndexTask = DownloadAtlasIndexPNGAsync(sceneUrls, scene);
@@ -407,11 +446,13 @@ public class MERFImporter {
         Texture2D[] rgbImages = await rgbVolumeTask;
         Texture2D[] featureImages = await featureVolumeTask;
 
-        EditorUtility.DisplayProgressBar(ProcessingTitle, $"{AssemblyInfo}'{objName}'...", 0.3f);
+        Progress.Report(progressId, 0.3f, $"{AssemblyInfo}'{objName}'...");
+
+        Texture2D atlasIndexData = await atlasIndexTask;
+        CreateAtlasIndexTexture(scene, atlasIndexData, sceneParams);
 
         /*Initialize(scene, atlasIndexData, rgbImages, featureImages, sceneParams);*/
 
-        EditorUtility.ClearProgressBar();
+        Progress.Remove(progressId);
     }
-
 }
