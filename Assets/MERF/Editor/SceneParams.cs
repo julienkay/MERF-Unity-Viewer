@@ -1,4 +1,6 @@
 using Newtonsoft.Json;
+using System;
+using System.Xml.Serialization;
 
 public class SceneParams {
     [JsonProperty("voxel_size")]
@@ -93,4 +95,71 @@ public class SceneParams {
 
     [JsonProperty("format")]
     public string Format { get; set; }
+
+    public double[][] GetWeights(int index) {
+        if (index < 0 || index > 2) {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index must be in the range 0 to 2.");
+        }
+        switch (index) {
+            case 0:
+                return _0Weights;
+            case 1:
+                return _1Weights;
+            case 2:
+                return _2Weights;
+            default:
+                throw new InvalidOperationException();
+        }
+    }
+    public void SetWeights(int index, double[][] new_weights) {
+        if (index < 0 || index > 2) {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index must be in the range 0 to 2.");
+        }
+        switch (index) {
+            case 0:
+                _0Weights = new_weights;
+                break;
+            case 1:
+                _1Weights = new_weights;
+                break;
+            case 2:
+                _2Weights = new_weights;
+                break;
+            default:
+                throw new InvalidOperationException();
+        }
+    }
+    public double[] GetBias(int index) {
+        if (index < 0 || index > 2) {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index must be in the range 0 to 2.");
+        }
+        switch (index) {
+            case 0:
+                return _0Bias;
+            case 1:
+                return _1Bias;
+            case 2:
+                return _2Bias;
+            default:
+                throw new InvalidOperationException();
+        }
+    }
+    public void SetBias(int index, double[] new_bias) {
+        if (index < 0 || index > 2) {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index must be in the range 0 to 2.");
+        }
+        switch (index) {
+            case 0:
+                _0Bias = new_bias;
+                break;
+            case 1:
+                _1Bias = new_bias;
+                break;
+            case 2:
+                _2Bias = new_bias;
+                break;
+            default:
+                throw new InvalidOperationException();
+        }
+    }
 }

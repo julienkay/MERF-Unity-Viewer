@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
+using static ViewDependency;
 using static WebRequestAsyncUtility;
 
 public class MERFImporter {
@@ -198,7 +199,7 @@ public class MERFImporter {
         Uri url = sceneUrls.Get("scene_params.json");
         string sceneParamsJson = await WebRequestSimpleAsync.SendWebRequestAsync(url);
         TextAsset mlpJsonTextAsset = new TextAsset(sceneParamsJson);
-        AssetDatabase.CreateAsset(mlpJsonTextAsset, GetSceneParamsAssetPath(scene));
+        CreateAsset(mlpJsonTextAsset, GetSceneParamsAssetPath(scene));
 
         SceneParams sceneParams = JsonConvert.DeserializeObject<SceneParams>(sceneParamsJson);
         return sceneParams;
@@ -415,7 +416,7 @@ public class MERFImporter {
         atlasIndex3DVolume.Apply();
         atlasVolumeData.Dispose();
 
-        AssetDatabase.CreateAsset(atlasIndex3DVolume, atlasAssetPath);
+        CreateAsset(atlasIndex3DVolume, atlasAssetPath);
     }
 
     /// <summary>
@@ -464,9 +465,9 @@ public class MERFImporter {
         planeDensityStack.Dispose();
         planeFeaturesStack.Dispose();
 
-        AssetDatabase.CreateAsset(planeRgbTexture, GetPlaneRGBAssetPath(scene));
-        AssetDatabase.CreateAsset(planeDensityTexture , GetPlaneDensityAssetPath(scene));
-        AssetDatabase.CreateAsset(planeFeaturesTexture, GetPlaneFeaturesAssetPath(scene));
+        CreateAsset(planeRgbTexture, GetPlaneRGBAssetPath(scene));
+        CreateAsset(planeDensityTexture , GetPlaneDensityAssetPath(scene));
+        CreateAsset(planeFeaturesTexture, GetPlaneFeaturesAssetPath(scene));
     }
 
     private static Texture2DArray CreateTextureArray(int width, int height, TextureFormat format) {
@@ -505,7 +506,7 @@ public class MERFImporter {
             byte[] occupancyGridImageFourChannels = occupancyGrid[occupancyGridIndex];
             occupancyGridTexture.SetPixelData(occupancyGridImageFourChannels, 0);
             occupancyGridTexture.Apply();
-            AssetDatabase.CreateAsset(occupancyGridTexture, occupancyAssetPath);
+            CreateAsset(occupancyGridTexture, occupancyAssetPath);
         }
     }
 
@@ -514,6 +515,47 @@ public class MERFImporter {
             filterMode = filterMode,
             wrapMode = TextureWrapMode.Clamp,
         };
+    }
+
+    /// <summary>
+    /// Creates the given asset and overwrites any existing asset with the same name
+    /// </summary>
+    private static void CreateAsset(UnityEngine.Object obj, string path) {
+        var existing = AssetDatabase.LoadAssetAtPath(path, obj.GetType());
+        if (existing != null) {
+            AssetDatabase.DeleteAsset(path);
+        }
+
+        AssetDatabase.CreateAsset(obj, path);
+    }
+
+    /// <summary>
+    /// Assemble shader code from header, on-the-fly generated view-dependency
+    /// functions and body
+    /// </summary>
+    private static void CreateRayMarchShader(MERFScene scene, SceneParams sceneParams) {
+        string fragmentShaderSource = ShaderTemplate.RayMarchFragmentShaderHeader;
+        fragmentShaderSource += CreateViewDependenceFunctions(sceneParams);
+        fragmentShaderSource += ShaderTemplate.RayMarchFragmentShaderBody;
+    }
+
+    /// <summary>
+    /// Upload networks weights into textures (biases are written into as
+    /// compile-time constants into the shader)
+    /// </summary>
+    private static void CreateWeightTextures(MERFScene scene, SceneParams sceneParams) {
+        Texture2D weightsTexZero = CreateNetworkWeightTexture(sceneParams._0Weights);
+        Texture2D weightsTexOne = CreateNetworkWeightTexture(sceneParams._1Weights);
+        Texture2D weightsTexTwo = CreateNetworkWeightTexture(sceneParams._2Weights);
+        AssetDatabase.CreateAsset(weightsTexZero, GetWeightsAssetPath(scene, 0));
+        AssetDatabase.CreateAsset(weightsTexOne, GetWeightsAssetPath(scene, 1));
+        AssetDatabase.CreateAsset(weightsTexTwo, GetWeightsAssetPath(scene, 2));
+        AssetDatabase.SaveAssets();
+    }
+
+    private static void CreateMaterial(MERFScene scene, SceneParams sceneParams) {
+        CreateRayMarchShader(scene, sceneParams);
+        CreateWeightTextures(scene, sceneParams);
     }
 
     private static async void ImportAssetsAsync(MERFScene scene) {
@@ -565,6 +607,10 @@ public class MERFImporter {
         Progress.Report(progressId, 0.5f, $"{AssemblyInfo}'{objName}'...");
 
         CreateOccupancyGridTexture(scene, occupancyGrid, sceneParams);
+
+        Progress.Report(progressId, 0.6f, $"{AssemblyInfo}'{objName}'...");
+
+        CreateMaterial(scene, sceneParams);
 
         /*Initialize(scene, atlasIndexData, rgbImages, featureImages, sceneParams);*/
 
