@@ -52,8 +52,6 @@ public static class ViewDependency {
     /// as a string.
     /// </summary>
     public static string CreateViewDependenceFunctions(SceneParams sceneParams) {
-        string viewDependenceNetworkShaderFunctions = ShaderTemplate.ViewDependenceNetworkShaderFunctions;
-
         // For mat4mul, we need to make sure that widths/heights of matrices
         // are multiples of 4
         for (int layerIndex = 0; layerIndex < 3; layerIndex++) {
@@ -86,7 +84,8 @@ public static class ViewDependency {
         SceneParams network_weights = sceneParams;
 
         // Write bias values as compile-time constants.
-        string fragmentShaderSource = viewDependenceNetworkShaderFunctions;
+        string fragmentShaderSource = ShaderTemplate.ViewDependenceNetworkShaderFunctions;
+
         for (int layerIndex = 0; layerIndex < 3; layerIndex++) {
             StringBuilder biasList = ToBiasList(network_weights.GetBias(layerIndex));
             fragmentShaderSource = new Regex("BIAS_LIST_" + layerIndex).Replace(fragmentShaderSource, $"{biasList}");

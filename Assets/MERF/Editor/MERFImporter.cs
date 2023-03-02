@@ -3,10 +3,12 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using static ViewDependency;
 using static WebRequestAsyncUtility;
 
@@ -177,6 +179,9 @@ public class MERFImporter {
     }
 
     private static int[] occupancyGridBlockSizes = new int[] { 8, 16, 32, 64, 128 };
+
+    private static ImportContext _context;
+    private static object sweightsTexTwo;
 
     private static async Task<MERFSources> DownloadSceneUrlsAsync(MERFScene scene) {
         string path = GetSceneUrlsCachePath(scene);
@@ -417,6 +422,7 @@ public class MERFImporter {
         atlasVolumeData.Dispose();
 
         CreateAsset(atlasIndex3DVolume, atlasAssetPath);
+        _context.AtlasIndex3DVolume = atlasIndex3DVolume;
     }
 
     /// <summary>
@@ -468,6 +474,10 @@ public class MERFImporter {
         CreateAsset(planeRgbTexture, GetPlaneRGBAssetPath(scene));
         CreateAsset(planeDensityTexture , GetPlaneDensityAssetPath(scene));
         CreateAsset(planeFeaturesTexture, GetPlaneFeaturesAssetPath(scene));
+
+        _context.PlaneRgbTexture = planeRgbTexture;
+        _context.PlaneDensityTexture = planeDensityTexture;
+        _context.PlaneFeaturesTexture = planeFeaturesTexture;
     }
 
     private static Texture2DArray CreateTextureArray(int width, int height, TextureFormat format) {
@@ -488,7 +498,7 @@ public class MERFImporter {
             baseVoxelSize = sceneParams.VoxelSize;
         }
         Texture3D[] occupancyGridTextures = new Texture3D[occupancyGridBlockSizes.Length];
-        Vector3Int[] occupancyGridSizes = new Vector3Int[occupancyGridBlockSizes.Length];
+        Vector4[] occupancyGridSizes = new Vector4[occupancyGridBlockSizes.Length];
         double[] occupancyVoxelSizes = new double[occupancyGridBlockSizes.Length];
         for (int occupancyGridIndex = 0; occupancyGridIndex < occupancyGridBlockSizes.Length; occupancyGridIndex++) {
             string occupancyAssetPath = GetOccupancyGridAssetPath(scene, occupancyGridIndex);
@@ -501,13 +511,17 @@ public class MERFImporter {
             Texture3D occupancyGridTexture = CreateVolumeTexture(w, h, d, TextureFormat.R8, FilterMode.Point);
             occupancyGridTexture.name = Path.GetFileNameWithoutExtension(occupancyAssetPath);
             occupancyGridTextures[occupancyGridIndex] = occupancyGridTexture;
-            occupancyGridSizes[occupancyGridIndex] = new Vector3Int(w, h, d);
+            occupancyGridSizes[occupancyGridIndex] = new Vector4(w, h, d, 0f);
             occupancyVoxelSizes[occupancyGridIndex] = baseVoxelSize * occupancyGridBlockSize;
             byte[] occupancyGridImageFourChannels = occupancyGrid[occupancyGridIndex];
             occupancyGridTexture.SetPixelData(occupancyGridImageFourChannels, 0);
             occupancyGridTexture.Apply();
             CreateAsset(occupancyGridTexture, occupancyAssetPath);
         }
+
+        _context.OccupancyGridTextures = occupancyGridTextures;
+        _context.OccupancyGridSizes = occupancyGridSizes;
+        _context.OccupancyVoxelSizes = occupancyVoxelSizes;
     }
 
     private static Texture3D CreateVolumeTexture(int width, int height, int depth, TextureFormat format, FilterMode filterMode) {
@@ -534,9 +548,19 @@ public class MERFImporter {
     /// functions and body
     /// </summary>
     private static void CreateRayMarchShader(MERFScene scene, SceneParams sceneParams) {
-        string fragmentShaderSource = ShaderTemplate.RayMarchFragmentShaderHeader;
-        fragmentShaderSource += CreateViewDependenceFunctions(sceneParams);
-        fragmentShaderSource += ShaderTemplate.RayMarchFragmentShaderBody;
+        string shaderSource = ShaderTemplate.Template;
+        string viewDependenceFunctions = CreateViewDependenceFunctions(sceneParams);
+        shaderSource = new Regex("VIEWDEPENDENCESHADERFUNCTIONS").Replace(shaderSource, viewDependenceFunctions);
+        shaderSource = new Regex("RAYMARCHVERTEXSHADER").Replace(shaderSource, ShaderTemplate.RayMarchVertexShader);
+        shaderSource = new Regex("RAYMARCHFRAGMENTSHADER").Replace(shaderSource, ShaderTemplate.RayMarchFragmentShaderBody);
+
+        shaderSource = new Regex("OBJECT_NAME").Replace(shaderSource, $"{scene}");
+        string shaderAssetPath = GetShaderAssetPath(scene);
+        File.WriteAllText(shaderAssetPath, shaderSource);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(shaderAssetPath);
+        _context.Shader = shader;
     }
 
     /// <summary>
@@ -547,18 +571,85 @@ public class MERFImporter {
         Texture2D weightsTexZero = CreateNetworkWeightTexture(sceneParams._0Weights);
         Texture2D weightsTexOne = CreateNetworkWeightTexture(sceneParams._1Weights);
         Texture2D weightsTexTwo = CreateNetworkWeightTexture(sceneParams._2Weights);
-        AssetDatabase.CreateAsset(weightsTexZero, GetWeightsAssetPath(scene, 0));
-        AssetDatabase.CreateAsset(weightsTexOne, GetWeightsAssetPath(scene, 1));
-        AssetDatabase.CreateAsset(weightsTexTwo, GetWeightsAssetPath(scene, 2));
+        CreateAsset(weightsTexZero, GetWeightsAssetPath(scene, 0));
+        CreateAsset(weightsTexOne, GetWeightsAssetPath(scene, 1));
+        CreateAsset(weightsTexTwo, GetWeightsAssetPath(scene, 2));
         AssetDatabase.SaveAssets();
+
+        _context.WeightsTexZero = weightsTexZero;
+        _context.WeightsTexOne = weightsTexOne;
+        _context.WeightsTexTwo = weightsTexTwo;
     }
 
     private static void CreateMaterial(MERFScene scene, SceneParams sceneParams) {
         CreateRayMarchShader(scene, sceneParams);
         CreateWeightTextures(scene, sceneParams);
+
+        string materialAssetPath = GetMaterialAssetPath(scene);
+        Shader raymarchShader =_context.Shader;
+        Material material = new Material(raymarchShader);
+
+        // Now set all shader properties
+        material.SetTexture("occupancyGrid_L4"     , _context.OccupancyGridTextures[0]);
+        material.SetTexture("occupancyGrid_L3"     , _context.OccupancyGridTextures[1]);
+        material.SetTexture("occupancyGrid_L2"     , _context.OccupancyGridTextures[2]);
+        material.SetTexture("occupancyGrid_L1"     , _context.OccupancyGridTextures[3]);
+        material.SetTexture("occupancyGrid_L0"     , _context.OccupancyGridTextures[4]);
+        material.SetFloat  ("voxelSizeOccupancy_L4", (float)_context.OccupancyVoxelSizes[0]);
+        material.SetFloat  ("voxelSizeOccupancy_L3", (float)_context.OccupancyVoxelSizes[1]);
+        material.SetFloat  ("voxelSizeOccupancy_L2", (float)_context.OccupancyVoxelSizes[2]);
+        material.SetFloat  ("voxelSizeOccupancy_L1", (float)_context.OccupancyVoxelSizes[3]);
+        material.SetFloat  ("voxelSizeOccupancy_L0", (float)_context.OccupancyVoxelSizes[4]);
+        material.SetVector ("gridSizeOccupancy_L4" , _context.OccupancyGridSizes[0]);
+        material.SetVector ("gridSizeOccupancy_L3" , _context.OccupancyGridSizes[1]);
+        material.SetVector ("gridSizeOccupancy_L2" , _context.OccupancyGridSizes[2]);
+        material.SetVector ("gridSizeOccupancy_L1" , _context.OccupancyGridSizes[3]);
+        material.SetVector ("gridSizeOccupancy_L0" , _context.OccupancyGridSizes[4]);
+        material.SetTexture("weightsZero"          , _context.WeightsTexZero);
+        material.SetTexture("weightsOne"           , _context.WeightsTexOne);
+        material.SetTexture("weightsTwo"           , _context.WeightsTexTwo);
+
+        material.SetVector("minPosition", new Vector4(
+            (float)sceneParams.MinX,
+            (float)sceneParams.MinY,
+            (float)sceneParams.MinZ,
+            0f)
+        );
+        material.SetInt("stepMult", 1);
+
+        //if (useTriplane)
+        material.SetTexture("planeRgb"         , _context.PlaneRgbTexture);
+        material.SetTexture("planeDensity"     , _context.PlaneDensityTexture);
+        material.SetTexture("planeFeatures"    , _context.PlaneFeaturesTexture);
+        material.SetVector ("planeSize"        , new Vector4(sceneParams.PlaneWidth0, sceneParams.PlaneHeight0, 0, 0));
+        material.SetFloat  ("voxelSizeTriplane", (float)sceneParams.VoxelSizeTriplane);
+        LocalKeyword useTriplaneKeyword = new LocalKeyword(_context.Shader, "USE_TRIPLANE");
+        material.SetKeyword(useTriplaneKeyword, true);
+
+        //if (useSparseGrid)
+        material.SetTexture("sparseGridDensity" , _context.DensityVolumeTexture);
+        material.SetTexture("sparseGridRgb"     , _context.RGBVolumeTexture);
+        material.SetTexture("sparseGridFeatures", _context.FeatureVolumeTexture);
+        material.SetTexture("sparseGridIndex"   , _context.AtlasIndexTexture);
+        material.SetFloat  ("blockSize"         ,        sceneParams.BlockSize);
+        material.SetFloat  ("voxelSize"         , (float)sceneParams.VoxelSize);
+        material.SetVector ("gridSize"          , new Vector4(sceneParams.GridWidth, sceneParams.GridHeight, sceneParams.GridDepth, 0));
+        material.SetVector ("atlasSize"         , new Vector4(sceneParams.AtlasWidth, sceneParams.AtlasHeight, sceneParams.AtlasDepth, 0));
+        LocalKeyword useSparseGridKeyword = new LocalKeyword(_context.Shader, "USE_SPARSE_GRID");
+        material.SetKeyword(useSparseGridKeyword, true);
+
+        //if (useLargerStepsWhenOccluded)
+        LocalKeyword useLargerStepsKeyword = new LocalKeyword(_context.Shader, "LARGER_STEPS_WHEN_OCCLUDED");
+        material.SetKeyword(useLargerStepsKeyword, true);
+
+        CreateAsset(material, materialAssetPath);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        _context.Material = material;
     }
 
     private static async void ImportAssetsAsync(MERFScene scene) {
+        _context = new ImportContext();
         string objName = scene.String();
 
         // first, make sure texture resources are downloaded to temp directory
