@@ -1288,7 +1288,7 @@ public static class ShaderTemplate {
               if ((_DisplayMode == DISPLAY_NORMAL ||
                    _DisplayMode == DISPLAY_VIEW_DEPENDENT)) {
                 accumulatedColor += evaluateNetwork(accumulatedColor, accumulatedFeatures,
-                                         _WorldspaceROpengl * normalize(vDirection));
+                                         mul(worldspaceROpengl, normalize(vDirection)));
               }
               return fixed4(accumulatedColor, 1.0);
             }
