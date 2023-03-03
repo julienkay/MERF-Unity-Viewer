@@ -587,7 +587,8 @@ public static class ShaderTemplate {
                     float4(0.0488495, 0.2099760, 0.0931385, 0.1399519),
                     float4(0.0994009, 0.2953304, 0.1486122, 0.0342005)
                 };
-                for (int j = 0; j < 16/4; ++j) {
+                int j = 0;
+                for (j = 0; j < 16/4; ++j) {
                     inp = relu(intermediate_one[j]);
                     for (int i = 0; i < 16; i += 4) {
                     w = float4x4(
@@ -601,7 +602,7 @@ public static class ShaderTemplate {
                 }
 
                 float4 result = float4(-0.2284832, -0.0142633, -0.2382168, 0.0000000);
-                for (int j = 0; j < 16/4; ++j) {
+                for (j = 0; j < 16/4; ++j) {
                     inp = relu(intermediate_two[j]);
                     w = float4x4(
                         _WeightsTwo.Load(int3(0, j * 4, 0)),
