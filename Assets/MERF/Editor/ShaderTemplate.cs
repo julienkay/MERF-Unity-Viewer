@@ -1045,7 +1045,7 @@ public static class ShaderTemplate {
               float3 blockGridSize = float3(iBlockGridSize);
             #endif
             
-              float[5] listQuadrantTMax = findTraversedQuadrants(originWorld,
+              float listQuadrantTMax[5] = findTraversedQuadrants(originWorld,
                   directionWorld, nearWorld);
             
               float tP = nearWorld;
