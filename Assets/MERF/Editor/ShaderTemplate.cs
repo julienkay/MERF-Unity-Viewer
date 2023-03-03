@@ -1279,7 +1279,7 @@ public static class ShaderTemplate {
             #ifdef USE_SPARSE_GRID
                 } // end of check: atlasBlockIndex.x <= 254.0
             #endif
-                tContracted += stepSizeContracted;_DisplayMode
+                tContracted += stepSizeContracted;
               }
             
               if (_DisplayMode == DISPLAY_VIEW_DEPENDENT) {
@@ -1295,7 +1295,7 @@ public static class ShaderTemplate {
               if ((_DisplayMode == DISPLAY_NORMAL ||
                    _DisplayMode == DISPLAY_VIEW_DEPENDENT)) {
                 accumulatedColor += evaluateNetwork(accumulatedColor, accumulatedFeatures,
-                                         mul(worldspaceROpengl, normalize(vDirection)));
+                                         mul(_WorldspaceROpengl, normalize(vDirection)));
               }
               return fixed4(accumulatedColor, 1.0);
             }
