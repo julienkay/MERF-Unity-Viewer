@@ -1191,7 +1191,7 @@ public static class ShaderTemplate {
                 float density = 0.0;
             #endif
             #ifdef USE_TRIPLANE
-                float3[3] planeUv;
+                float3 planeUv[3];
                 planeUv[0] = float3(posTriplaneGrid.yz / _PlaneSize, 0.0);
                 planeUv[1] = float3(posTriplaneGrid.xz / _PlaneSize, 1.0);
                 planeUv[2] = float3(posTriplaneGrid.xy / _PlaneSize, 2.0);
