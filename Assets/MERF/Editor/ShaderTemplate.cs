@@ -23,11 +23,11 @@ public static class ShaderTemplate {
 	    _MinPosition           (""Min Position""         , Vector ) = (0, 0, 0, 0)
         _StepMult              (""StepMult""             , Integer) = 1
         
-        _PlaneRgb              (""planeRgb""             , 2DArray) = """" {}
-        _PlaneDensity          (""planeDensity""         , 2DArray) = """" {}
-        _PlaneFeatures         (""planeFeatures""        , 2DArray) = """" {}
-	    _PlaneSize             (""_PlaneSize""            , Vector ) = (0, 0, 0, 0)
-        _VoxelSizeTriplane     (""_VoxelSizeTriplane""   , Float  ) = 0.0
+        _PlaneRgb              (""PlaneRgb""             , 2DArray) = """" {}
+        _PlaneDensity          (""PlaneDensity""         , 2DArray) = """" {}
+        _PlaneFeatures         (""PlaneFeatures""        , 2DArray) = """" {}
+	    _PlaneSize             (""PlaneSize""            , Vector ) = (0, 0, 0, 0)
+        _VoxelSizeTriplane     (""VoxelSizeTriplane""    , Float  ) = 0.0
 
         _SparseGridDensity     (""SparseGridDensity""    , 2D     ) = ""white"" {}
         _SparseGridRgb         (""SparseGridRgb""        , 2D     ) = ""white"" {}
@@ -99,9 +99,9 @@ public static class ShaderTemplate {
 
             #ifdef USE_TRIPLANE
             // need to use texture arrays, otherwise we exceed max texture unit limit
-            float sampler2DArray planeRgb;
-            float sampler2DArray planeDensity;
-            float sampler2DArray planeFeatures;
+            float sampler2DArray _PlaneRgb;
+            float sampler2DArray _PlaneDensity;
+            float sampler2DArray _PlaneFeatures;
             float2 _PlaneSize;
             float _VoxelSizeTriplane;
             #endif
@@ -984,7 +984,7 @@ public static class ShaderTemplate {
             };
             
             OccupancyQueryResults queryOccupancyGrid(
-                float3 z, float3 minPosition, float3 oContracted,
+                float3 z, float3 _MinPosition, float3 oContracted,
                 float3 invDContracted, sampler3D occupancyGrid,
                 float _VoxelSizeOccupancy, float3 _GridSizeOccupancy) {
               OccupancyQueryResults r;
@@ -992,15 +992,15 @@ public static class ShaderTemplate {
               float3 blockMin;
               float3 blockMax;
               float occupancy;
-              posOccupancy = (z - minPosition) / _VoxelSizeOccupancy;
+              posOccupancy = (z - _MinPosition) / _VoxelSizeOccupancy;
               blockMin = floor(posOccupancy);
               blockMax = floor(posOccupancy) + 1.0;
               occupancy = tex3D(
                 occupancyGrid,
                 (blockMin + blockMax) * 0.5 / _GridSizeOccupancy
               ).r;
-              blockMin = blockMin * _VoxelSizeOccupancy + minPosition;
-              blockMax = blockMax * _VoxelSizeOccupancy + minPosition;
+              blockMin = blockMin * _VoxelSizeOccupancy + _MinPosition;
+              blockMax = blockMax * _VoxelSizeOccupancy + _MinPosition;
               r.inEmptySpace = occupancy == 0.0;
               r.tBlockMax = rayAabbIntersection(blockMin, blockMax, oContracted, invDContracted).y;
               return r;
@@ -1010,7 +1010,7 @@ public static class ShaderTemplate {
             #define QUERY_OCCUPANCY_GRID(tBlockMax_L, occupancyGrid, _VoxelSizeOccupancy, _GridSizeOccupancy)\
             if (tContracted > tBlockMax_L) {\
               occupancyQueryResults =\
-                queryOccupancyGrid(z, minPosition, r.oContracted, invDContracted,\
+                queryOccupancyGrid(z, _MinPosition, r.oContracted, invDContracted,\
                                     occupancyGrid, _VoxelSizeOccupancy, _GridSizeOccupancy);\
               tBlockMax_L = occupancyQueryResults.tBlockMax;\
               if (occupancyQueryResults.inEmptySpace) {\
@@ -1130,10 +1130,10 @@ public static class ShaderTemplate {
                 // We are in occupied space
                 // compute grid positions for the sparse 3D grid and on the triplane planes
             #ifdef USE_SPARSE_GRID
-                float3 posSparseGrid = (z - minPosition) / _VoxelSize - 0.5;
+                float3 posSparseGrid = (z - _MinPosition) / _VoxelSize - 0.5;
             #endif
             #ifdef USE_TRIPLANE
-                float3 posTriplaneGrid = (z - minPosition) / _VoxelSizeTriplane;
+                float3 posTriplaneGrid = (z - _MinPosition) / _VoxelSizeTriplane;
             #endif
             
                 // Calculate where the next sample would land in order to compute the
@@ -1188,17 +1188,17 @@ public static class ShaderTemplate {
                 planeUv[2] = float3(posTriplaneGrid.xy / _PlaneSize, 2.0);
             
                 float densityTemp;
-                densityTemp = texture(planeDensity, planeUv[0]).x;
+                densityTemp = texture(_PlaneDensity, planeUv[0]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
             
-                densityTemp = texture(planeDensity, planeUv[1]).x;
+                densityTemp = texture(_PlaneDensity, planeUv[1]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
             
-                densityTemp = texture(planeDensity, planeUv[2]).x;
+                densityTemp = texture(_PlaneDensity, planeUv[2]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
@@ -1218,17 +1218,17 @@ public static class ShaderTemplate {
             #endif
             #ifdef USE_TRIPLANE
                   float3 rgbTemp;
-                  rgbTemp = texture(planeRgb, planeUv[0]).rgb;
+                  rgbTemp = texture(_PlaneRgb, planeUv[0]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
             
-                  rgbTemp = texture(planeRgb, planeUv[1]).rgb;
+                  rgbTemp = texture(_PlaneRgb, planeUv[1]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
             
-                  rgbTemp = texture(planeRgb, planeUv[2]).rgb;
+                  rgbTemp = texture(_PlaneRgb, planeUv[2]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
@@ -1245,17 +1245,17 @@ public static class ShaderTemplate {
             #endif
             #ifdef USE_TRIPLANE
                     float4 featuresTemp;
-                    featuresTemp = texture(planeFeatures, planeUv[0]);
+                    featuresTemp = texture(_PlaneFeatures, planeUv[0]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
             
-                    featuresTemp = texture(planeFeatures, planeUv[1]);
+                    featuresTemp = texture(_PlaneFeatures, planeUv[1]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
             
-                    featuresTemp = texture(planeFeatures, planeUv[2]);
+                    featuresTemp = texture(_PlaneFeatures, planeUv[2]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
