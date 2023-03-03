@@ -689,7 +689,7 @@ public static class ShaderTemplate {
             
             // Sorts an array of length 5 in-place. This is hardcoded to 5 since a ray
             // traverses up to 5 quadrants.
-            void sort5(inout float array[], int arrayLength) {
+            void sort5(inout float array[5], int arrayLength) {
               float t;
               for (int i = 0; i < arrayLength; ++i) {
                 for (int j = i+1; j < arrayLength; ++j) {
