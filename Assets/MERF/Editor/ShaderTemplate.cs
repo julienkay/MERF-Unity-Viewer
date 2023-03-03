@@ -1078,6 +1078,7 @@ public static class ShaderTemplate {
               int maxStep = _StepMult * int(ceil(length(GRID_SIZE.xyz)));
               float origStepSizeContracted = VOXEL_SIZE / float(_StepMult);
             
+              [loop]
               while (step < maxStep && visibility > 1.0 / 255.0) {
                 step++;
             #ifdef LARGER_STEPS_WHEN_OCCLUDED
