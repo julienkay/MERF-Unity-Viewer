@@ -590,51 +590,52 @@ public class MERFImporter {
         Material material = new Material(raymarchShader);
 
         // Now set all shader properties
-        material.SetTexture("occupancyGrid_L4"     , _context.OccupancyGridTextures[0]);
-        material.SetTexture("occupancyGrid_L3"     , _context.OccupancyGridTextures[1]);
-        material.SetTexture("occupancyGrid_L2"     , _context.OccupancyGridTextures[2]);
-        material.SetTexture("occupancyGrid_L1"     , _context.OccupancyGridTextures[3]);
-        material.SetTexture("occupancyGrid_L0"     , _context.OccupancyGridTextures[4]);
-        material.SetFloat  ("voxelSizeOccupancy_L4", (float)_context.OccupancyVoxelSizes[0]);
-        material.SetFloat  ("voxelSizeOccupancy_L3", (float)_context.OccupancyVoxelSizes[1]);
-        material.SetFloat  ("voxelSizeOccupancy_L2", (float)_context.OccupancyVoxelSizes[2]);
-        material.SetFloat  ("voxelSizeOccupancy_L1", (float)_context.OccupancyVoxelSizes[3]);
-        material.SetFloat  ("voxelSizeOccupancy_L0", (float)_context.OccupancyVoxelSizes[4]);
-        material.SetVector ("gridSizeOccupancy_L4" , _context.OccupancyGridSizes[0]);
-        material.SetVector ("gridSizeOccupancy_L3" , _context.OccupancyGridSizes[1]);
-        material.SetVector ("gridSizeOccupancy_L2" , _context.OccupancyGridSizes[2]);
-        material.SetVector ("gridSizeOccupancy_L1" , _context.OccupancyGridSizes[3]);
-        material.SetVector ("gridSizeOccupancy_L0" , _context.OccupancyGridSizes[4]);
-        material.SetTexture("weightsZero"          , _context.WeightsTexZero);
-        material.SetTexture("weightsOne"           , _context.WeightsTexOne);
-        material.SetTexture("weightsTwo"           , _context.WeightsTexTwo);
+        material.SetTexture("_OccupancyGrid_L4"     , _context.OccupancyGridTextures[0]);
+        material.SetTexture("_OccupancyGrid_L3"     , _context.OccupancyGridTextures[1]);
+        material.SetTexture("_OccupancyGrid_L2"     , _context.OccupancyGridTextures[2]);
+        material.SetTexture("_OccupancyGrid_L1"     , _context.OccupancyGridTextures[3]);
+        material.SetTexture("_OccupancyGrid_L0"     , _context.OccupancyGridTextures[4]);
+        material.SetFloat  ("_VoxelSizeOccupancy_L4", (float)_context.OccupancyVoxelSizes[0]);
+        material.SetFloat  ("_VoxelSizeOccupancy_L3", (float)_context.OccupancyVoxelSizes[1]);
+        material.SetFloat  ("_VoxelSizeOccupancy_L2", (float)_context.OccupancyVoxelSizes[2]);
+        material.SetFloat  ("_VoxelSizeOccupancy_L1", (float)_context.OccupancyVoxelSizes[3]);
+        material.SetFloat  ("_VoxelSizeOccupancy_L0", (float)_context.OccupancyVoxelSizes[4]);
+        material.SetVector ("_GridSizeOccupancy_L4" , _context.OccupancyGridSizes[0]);
+        material.SetVector ("_GridSizeOccupancy_L3" , _context.OccupancyGridSizes[1]);
+        material.SetVector ("_GridSizeOccupancy_L2" , _context.OccupancyGridSizes[2]);
+        material.SetVector ("_GridSizeOccupancy_L1" , _context.OccupancyGridSizes[3]);
+        material.SetVector ("_GridSizeOccupancy_L0" , _context.OccupancyGridSizes[4]);
+        material.SetInteger("_DisplayMode"          , 0);
+        material.SetTexture("_WeightsZero"          , _context.WeightsTexZero);
+        material.SetTexture("_WeightsOne"           , _context.WeightsTexOne);
+        material.SetTexture("_WeightsTwo"           , _context.WeightsTexTwo);
 
-        material.SetVector("minPosition", new Vector4(
+        material.SetVector("_MinPosition", new Vector4(
             (float)sceneParams.MinX,
             (float)sceneParams.MinY,
             (float)sceneParams.MinZ,
             0f)
         );
-        material.SetInt("stepMult", 1);
+        material.SetInteger("_StepMult", 1);
 
         //if (useTriplane)
-        material.SetTexture("planeRgb"         , _context.PlaneRgbTexture);
-        material.SetTexture("planeDensity"     , _context.PlaneDensityTexture);
-        material.SetTexture("planeFeatures"    , _context.PlaneFeaturesTexture);
-        material.SetVector ("planeSize"        , new Vector4(sceneParams.PlaneWidth0, sceneParams.PlaneHeight0, 0, 0));
-        material.SetFloat  ("voxelSizeTriplane", (float)sceneParams.VoxelSizeTriplane);
+        material.SetTexture("_PlaneRgb"         , _context.PlaneRgbTexture);
+        material.SetTexture("_PlaneDensity"     , _context.PlaneDensityTexture);
+        material.SetTexture("_PlaneFeatures"    , _context.PlaneFeaturesTexture);
+        material.SetVector ("_PlaneSize"        , new Vector4(sceneParams.PlaneWidth0, sceneParams.PlaneHeight0, 0, 0));
+        material.SetFloat  ("_VoxelSizeTriplane", (float)sceneParams.VoxelSizeTriplane);
         LocalKeyword useTriplaneKeyword = new LocalKeyword(_context.Shader, "USE_TRIPLANE");
         material.SetKeyword(useTriplaneKeyword, true);
 
         //if (useSparseGrid)
-        material.SetTexture("sparseGridDensity" , _context.DensityVolumeTexture);
-        material.SetTexture("sparseGridRgb"     , _context.RGBVolumeTexture);
-        material.SetTexture("sparseGridFeatures", _context.FeatureVolumeTexture);
-        material.SetTexture("sparseGridIndex"   , _context.AtlasIndexTexture);
-        material.SetFloat  ("blockSize"         ,        sceneParams.BlockSize);
-        material.SetFloat  ("voxelSize"         , (float)sceneParams.VoxelSize);
-        material.SetVector ("gridSize"          , new Vector4(sceneParams.GridWidth, sceneParams.GridHeight, sceneParams.GridDepth, 0));
-        material.SetVector ("atlasSize"         , new Vector4(sceneParams.AtlasWidth, sceneParams.AtlasHeight, sceneParams.AtlasDepth, 0));
+        material.SetTexture("_SparseGridDensity" , _context.DensityVolumeTexture);
+        material.SetTexture("_SparseGridRgb"     , _context.RGBVolumeTexture);
+        material.SetTexture("_SparseGridFeatures", _context.FeatureVolumeTexture);
+        material.SetTexture("_SparseGridIndex"   , _context.AtlasIndexTexture);
+        material.SetFloat  ("_BlockSize"         ,        sceneParams.BlockSize);
+        material.SetFloat  ("_VoxelSize"         , (float)sceneParams.VoxelSize);
+        material.SetVector ("_GridSize"          , new Vector4(sceneParams.GridWidth, sceneParams.GridHeight, sceneParams.GridDepth, 0));
+        material.SetVector ("_AtlasSize"         , new Vector4(sceneParams.AtlasWidth, sceneParams.AtlasHeight, sceneParams.AtlasDepth, 0));
         LocalKeyword useSparseGridKeyword = new LocalKeyword(_context.Shader, "USE_SPARSE_GRID");
         material.SetKeyword(useSparseGridKeyword, true);
 

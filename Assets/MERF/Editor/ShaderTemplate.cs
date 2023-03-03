@@ -17,7 +17,7 @@ public static class ShaderTemplate {
         _GridSizeOccupancy_L2  (""_GridSizeOccupancy_L2"", Vector ) = (0, 0, 0, 0)
         _GridSizeOccupancy_L1  (""_GridSizeOccupancy_L1"", Vector ) = (0, 0, 0, 0)
         _GridSizeOccupancy_L0  (""_GridSizeOccupancy_L0"", Vector ) = (0, 0, 0, 0)
-        _DisplayMode           (""_DisplayMode""          , Integer) = 0
+        _DisplayMode           (""_DisplayMode""         , Integer) = 0
         _WeightsZero           (""Weights Zero""         , 2D     ) = ""white"" {}
         _WeightsOne            (""Weights One""          , 2D     ) = ""white"" {}
         _WeightsTwo            (""Weights Two""          , 2D     ) = ""white"" {}
