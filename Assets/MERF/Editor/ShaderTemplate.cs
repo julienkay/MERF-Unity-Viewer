@@ -995,7 +995,7 @@ public static class ShaderTemplate {
               posOccupancy = (z - minPosition) / _VoxelSizeOccupancy;
               blockMin = floor(posOccupancy);
               blockMax = floor(posOccupancy) + 1.0;
-              occupancy = UNITY_SAMPLE_TEX3D(
+              occupancy = tex3D(
                 occupancyGrid,
                 (blockMin + blockMax) * 0.5 / _GridSizeOccupancy
               ).r;
