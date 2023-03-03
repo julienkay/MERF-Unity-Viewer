@@ -85,11 +85,11 @@ public static class ShaderTemplate {
             UNITY_DECLARE_TEX2D(_WeightsTwo);
 
             int _StepMult;
+            float3 _GridSize;
+            float _VoxelSize;
 
             #ifdef USE_SPARSE_GRID
-            float3 _GridSize;
             float3 _AtlasSize;
-            float _VoxelSize;
             float _BlockSize;
             sampler3D _SparseGridDensity;
             sampler3D _SparseGridRgb;
