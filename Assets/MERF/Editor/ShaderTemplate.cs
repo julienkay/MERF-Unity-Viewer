@@ -1049,7 +1049,7 @@ public static class ShaderTemplate {
                   directionWorld, nearWorld);
             
               float tP = nearWorld;
-              float tQ = mix(nearWorld, listQuadrantTMax[0], 0.5);
+              float tQ = lerp(nearWorld, listQuadrantTMax[0], 0.5);
             
               QuadrantSetupResults r = quadrantSetup(originWorld, directionWorld, tP, tQ);
               float tContracted = 0.0;
@@ -1080,7 +1080,7 @@ public static class ShaderTemplate {
                 step++;
             #ifdef LARGER_STEPS_WHEN_OCCLUDED
                 float stepSizeContracted = origStepSizeContracted *
-                    mix(8.0, 1.0, min(1.0, visibility / 0.66));
+                    lerp(8.0, 1.0, min(1.0, visibility / 0.66));
             #else
                 float stepSizeContracted = origStepSizeContracted;
             #endif
@@ -1096,8 +1096,8 @@ public static class ShaderTemplate {
                   // sStup ray in the new quadrant
                   // By using the precomputed t-values we can find two points that are guranteed
                   // to lie within the new quadrant.
-                  tP = mix(listQuadrantTMax[quadrantIndex - 1], listQuadrantTMax[quadrantIndex], 0.1);
-                  tQ = mix(listQuadrantTMax[quadrantIndex - 1], listQuadrantTMax[quadrantIndex], 0.9);
+                  tP = lerp(listQuadrantTMax[quadrantIndex - 1], listQuadrantTMax[quadrantIndex], 0.1);
+                  tQ = lerp(listQuadrantTMax[quadrantIndex - 1], listQuadrantTMax[quadrantIndex], 0.9);
                   r = quadrantSetup(originWorld, directionWorld, tP, tQ);
                   tContracted = r.quadrantTMinMaxContracted.x;
                   quadrantIndex++;
