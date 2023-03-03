@@ -26,7 +26,7 @@ public static class ShaderTemplate {
         _PlaneRgb              (""planeRgb""             , 2DArray) = """" {}
         _PlaneDensity          (""planeDensity""         , 2DArray) = """" {}
         _PlaneFeatures         (""planeFeatures""        , 2DArray) = """" {}
-	    _PlaneSize             (""planeSize""            , Vector ) = (0, 0, 0, 0)
+	    _PlaneSize             (""_PlaneSize""            , Vector ) = (0, 0, 0, 0)
         _VoxelSizeTriplane     (""_VoxelSizeTriplane""   , Float  ) = 0.0
 
         _SparseGridDensity     (""SparseGridDensity""    , 2D     ) = ""white"" {}
@@ -102,7 +102,7 @@ public static class ShaderTemplate {
             float sampler2DArray planeRgb;
             float sampler2DArray planeDensity;
             float sampler2DArray planeFeatures;
-            float2 planeSize;
+            float2 _PlaneSize;
             float _VoxelSizeTriplane;
             #endif
 
@@ -1067,7 +1067,7 @@ public static class ShaderTemplate {
               int step = 0;
             
             #ifdef USE_TRIPLANE
-              #define GRID_SIZE planeSize
+              #define GRID_SIZE _PlaneSize
               #define VOXEL_SIZE _VoxelSizeTriplane
             #else
               #define GRID_SIZE _GridSize
@@ -1183,9 +1183,9 @@ public static class ShaderTemplate {
             #endif
             #ifdef USE_TRIPLANE
                 float3[3] planeUv;
-                planeUv[0] = float3(posTriplaneGrid.yz / planeSize, 0.0);
-                planeUv[1] = float3(posTriplaneGrid.xz / planeSize, 1.0);
-                planeUv[2] = float3(posTriplaneGrid.xy / planeSize, 2.0);
+                planeUv[0] = float3(posTriplaneGrid.yz / _PlaneSize, 0.0);
+                planeUv[1] = float3(posTriplaneGrid.xz / _PlaneSize, 1.0);
+                planeUv[2] = float3(posTriplaneGrid.xy / _PlaneSize, 2.0);
             
                 float densityTemp;
                 densityTemp = texture(planeDensity, planeUv[0]).x;
