@@ -1073,8 +1073,8 @@ public static class ShaderTemplate {
               #define GRID_SIZE _GridSize
               #define VOXEL_SIZE _VoxelSize
             #endif
-              int maxStep = stepMult * int(ceil(length(GRID_SIZE)));
-              float origStepSizeContracted = VOXEL_SIZE / float(stepMult);
+              int maxStep = _StepMult * int(ceil(length(GRID_SIZE)));
+              float origStepSizeContracted = VOXEL_SIZE / float(_StepMult);
             
               while (step < maxStep && visibility > 1.0 / 255.0) {
                 step++;
