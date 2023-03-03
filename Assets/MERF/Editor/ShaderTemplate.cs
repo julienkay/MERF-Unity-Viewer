@@ -1290,7 +1290,7 @@ public static class ShaderTemplate {
                 accumulatedColor += evaluateNetwork(accumulatedColor, accumulatedFeatures,
                                          worldspaceROpengl * normalize(vDirection));
               }
-              gl_FragColor = float4(accumulatedColor, 1.0);
+              return fixed4(accumulatedColor, 1.0);
             }
 ";
     private const string VERTEX = @"v2f vert (appdata v) {
