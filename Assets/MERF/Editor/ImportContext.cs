@@ -16,8 +16,8 @@ public class ImportContext {
     public Texture2D WeightsTexOne;
     public Texture2D WeightsTexTwo;
     public Material Material;
-    public Texture DensityVolumeTexture;
-    public Texture RGBVolumeTexture;
-    public Texture FeatureVolumeTexture;
-    public Texture AtlasIndexTexture;
+    public Texture2D DensityVolumeTexture;
+    public Texture2D RGBVolumeTexture;
+    public Texture2D FeatureVolumeTexture;
+    public Texture2D AtlasIndexTexture;
 }
