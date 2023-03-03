@@ -50,6 +50,7 @@ public static class ShaderTemplate {
             #pragma shader_feature_local USE_TRIPLANE
             #pragma shader_feature_local USE_SPARSE_GRID
             #pragma shader_feature_local LARGER_STEPS_WHEN_OCCLUDED
+            #pragma require 2darray
 
             #pragma vertex vert
             #pragma fragment frag
@@ -100,9 +101,9 @@ public static class ShaderTemplate {
 
             #ifdef USE_TRIPLANE
             // need to use texture arrays, otherwise we exceed max texture unit limit
-            float sampler2DArray _PlaneRgb;
-            float sampler2DArray _PlaneDensity;
-            float sampler2DArray _PlaneFeatures;
+            UNITY_DECLARE_TEX2DARRAY(_PlaneRgb);
+            UNITY_DECLARE_TEX2DARRAY(_PlaneDensity);
+            UNITY_DECLARE_TEX2DARRAY(_PlaneFeatures);
             float2 _PlaneSize;
             float _VoxelSizeTriplane;
             #endif
@@ -1197,17 +1198,17 @@ public static class ShaderTemplate {
                 planeUv[2] = float3(posTriplaneGrid.xy / _PlaneSize, 2.0);
             
                 float densityTemp;
-                densityTemp = texture(_PlaneDensity, planeUv[0]).x;
+                densityTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneDensity, planeUv[0]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
             
-                densityTemp = texture(_PlaneDensity, planeUv[1]).x;
+                densityTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneDensity, planeUv[1]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
             
-                densityTemp = texture(_PlaneDensity, planeUv[2]).x;
+                densityTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneDensity, planeUv[2]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
@@ -1227,17 +1228,17 @@ public static class ShaderTemplate {
             #endif
             #ifdef USE_TRIPLANE
                   float3 rgbTemp;
-                  rgbTemp = texture(_PlaneRgb, planeUv[0]).rgb;
+                  rgbTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneRgb, planeUv[0]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
             
-                  rgbTemp = texture(_PlaneRgb, planeUv[1]).rgb;
+                  rgbTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneRgb, planeUv[1]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
             
-                  rgbTemp = texture(_PlaneRgb, planeUv[2]).rgb;
+                  rgbTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneRgb, planeUv[2]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
@@ -1254,17 +1255,17 @@ public static class ShaderTemplate {
             #endif
             #ifdef USE_TRIPLANE
                     float4 featuresTemp;
-                    featuresTemp = texture(_PlaneFeatures, planeUv[0]);
+                    featuresTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneFeatures, planeUv[0]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
             
-                    featuresTemp = texture(_PlaneFeatures, planeUv[1]);
+                    featuresTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneFeatures, planeUv[1]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
             
-                    featuresTemp = texture(_PlaneFeatures, planeUv[2]);
+                    featuresTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneFeatures, planeUv[2]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
