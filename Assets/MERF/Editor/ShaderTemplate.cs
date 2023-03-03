@@ -821,6 +821,7 @@ public static class ShaderTemplate {
               Quadrants q;
               float listQuadrantTMax[5] = { INF, INF, INF, INF, INF }; // Rays traverse up to 5 quadrants
               q.array = listQuadrantTMax;
+              int numQuadrantsTraversed = 0;
               float c1 = 1.0 - 1e-5;
               float c2 = 2.0 - 1e-4;
               float3 aabbMin;
