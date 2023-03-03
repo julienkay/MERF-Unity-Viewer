@@ -17,6 +17,7 @@ public static class ShaderTemplate {
         _GridSizeOccupancy_L2  (""_GridSizeOccupancy_L2"", Vector ) = (0, 0, 0, 0)
         _GridSizeOccupancy_L1  (""_GridSizeOccupancy_L1"", Vector ) = (0, 0, 0, 0)
         _GridSizeOccupancy_L0  (""_GridSizeOccupancy_L0"", Vector ) = (0, 0, 0, 0)
+        _DisplayMode           (""_DisplayMode""          , Integer) = 0
         _WeightsZero           (""Weights Zero""         , 2D     ) = ""white"" {}
         _WeightsOne            (""Weights One""          , 2D     ) = ""white"" {}
         _WeightsTwo            (""Weights Two""          , 2D     ) = ""white"" {}
@@ -1159,7 +1160,7 @@ public static class ShaderTemplate {
                 posAtlas += 0.5;
                 float3 atlasUvw = posAtlas / _AtlasSize;
             
-                if (displayMode == DISPLAY_COARSE_GRID) {
+                if (_DisplayMode == DISPLAY_COARSE_GRID) {
                   // Half-pixel apron
                   accumulatedColor = atlasBlockIndex * (_BlockSize + 1.0) / _AtlasSize;
                   accumulatedFeatures.rgb = atlasBlockIndex * (_BlockSize + 1.0) / _AtlasSize;
@@ -1237,7 +1238,7 @@ public static class ShaderTemplate {
             
                   rgb = sigmoid(rgb); // Apply activation function
             
-                  if (displayMode != DISPLAY_DIFFUSE) {
+                  if (_DisplayMode != DISPLAY_DIFFUSE) {
                     float4 features = float4(0.0, 0.0, 0.0, 0.0);
             #ifdef USE_SPARSE_GRID
                     features = texture(_SparseGridFeatures, atlasUvw);
@@ -1274,9 +1275,9 @@ public static class ShaderTemplate {
                 tContracted += stepSizeContracted;
               }
             
-              if (displayMode == DISPLAY_VIEW_DEPENDENT) {
+              if (_DisplayMode == DISPLAY_VIEW_DEPENDENT) {
                 accumulatedColor = float3(0.0, 0.0, 0.0) * visibility;
-              } else if (displayMode == DISPLAY_FEATURES) {
+              } else if (_DisplayMode == DISPLAY_FEATURES) {
                 accumulatedColor = accumulatedFeatures.rgb;
               }
             
@@ -1284,8 +1285,8 @@ public static class ShaderTemplate {
               accumulatedColor = float3(1.0, 1.0, 1.0) * visibility + accumulatedColor;
             
               // Run view-dependency network
-              if ((displayMode == DISPLAY_NORMAL ||
-                   displayMode == DISPLAY_VIEW_DEPENDENT)) {
+              if ((_DisplayMode == DISPLAY_NORMAL ||
+                   _DisplayMode == DISPLAY_VIEW_DEPENDENT)) {
                 accumulatedColor += evaluateNetwork(accumulatedColor, accumulatedFeatures,
                                          worldspaceROpengl * normalize(vDirection));
               }
