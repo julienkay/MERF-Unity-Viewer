@@ -30,10 +30,10 @@ public static class ShaderTemplate {
 	    _PlaneSize             (""PlaneSize""            , Vector ) = (0, 0, 0, 0)
         _VoxelSizeTriplane     (""VoxelSizeTriplane""    , Float  ) = 0.0
 
-        _SparseGridDensity     (""SparseGridDensity""    , 2D     ) = ""white"" {}
-        _SparseGridRgb         (""SparseGridRgb""        , 2D     ) = ""white"" {}
-        _SparseGridFeatures    (""SparseGridFeatures""   , 2D     ) = ""white"" {}
-        _SparseGridIndex       (""SparseGridIndex""      , 2D     ) = ""white"" {}
+        _SparseGridDensity     (""SparseGridDensity""    , 3D     ) = ""white"" {}
+        _SparseGridRgb         (""SparseGridRgb""        , 3D     ) = ""white"" {}
+        _SparseGridFeatures    (""SparseGridFeatures""   , 3D     ) = ""white"" {}
+        _SparseGridIndex       (""SparseGridIndex""      , 3D     ) = ""white"" {}
 	    _BlockSize             (""Block Size""           , Float  ) = 0.0
 	    _VoxelSize             (""Voxel Size""           , Float  ) = 0.0
         _GridSize              (""Grid Size""            , Vector ) = (0, 0, 0, 0)
@@ -1158,7 +1158,7 @@ public static class ShaderTemplate {
                     floor(posSparseGrid / _BlockSize) * _BlockSize;
                 float3 atlasBlockMax = atlasBlockMin + _BlockSize;
                 float3 atlasBlockIndex =
-                    255.0 * texture(_SparseGridIndex, (atlasBlockMin + atlasBlockMax) /
+                    255.0 * tex3D(_SparseGridIndex, (atlasBlockMin + atlasBlockMax) /
                                                   (2.0 * blockGridSize)).xyz;
                 if (atlasBlockIndex.x <= 254.0) {
                 float3 posAtlas = clamp(posSparseGrid - atlasBlockMin, 0.0, _BlockSize);
@@ -1185,7 +1185,7 @@ public static class ShaderTemplate {
             
                 // First fetch all densities
             #ifdef USE_SPARSE_GRID
-                float density = texture(_SparseGridDensity, atlasUvw).x;
+                float density = tex3D(_SparseGridDensity, atlasUvw).x;
                 density = denormalize(density, quantizeMinDensity, quantizeMaxDensity);
             #else
                 float density = 0.0;
@@ -1220,7 +1220,7 @@ public static class ShaderTemplate {
                 // Only fetch RGBFFFF (7 bytes) if alpha is non-negligible to save bandwidth
                 if (alpha > 0.5 / 255.0) {
             #ifdef USE_SPARSE_GRID
-                  float3 rgb = texture(_SparseGridRgb, atlasUvw).rgb;
+                  float3 rgb = tex3D(_SparseGridRgb, atlasUvw).rgb;
                   rgb = denormalize(rgb, quantizeMinFeatures, quantizeMaxFeatures);
             #else
                   float3 rgb = float3(0.0, 0.0, 0.0);
@@ -1248,7 +1248,7 @@ public static class ShaderTemplate {
                   if (_DisplayMode != DISPLAY_DIFFUSE) {
                     float4 features = float4(0.0, 0.0, 0.0, 0.0);
             #ifdef USE_SPARSE_GRID
-                    features = texture(_SparseGridFeatures, atlasUvw);
+                    features = tex3D(_SparseGridFeatures, atlasUvw);
                     features = denormalize(features, quantizeMinFeatures,
                                            quantizeMaxFeatures);
             #endif
