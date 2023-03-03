@@ -1076,7 +1076,12 @@ public static class ShaderTemplate {
               #define GRID_SIZE _GridSize
               #define VOXEL_SIZE _VoxelSize
             #endif
-              int maxStep = _StepMult * int(ceil(length(GRID_SIZE.xyz)));
+            #ifdef USE_TRIPLANE
+              float2 gridSize = GRID_SIZE;
+            #else
+              float3 gridSize = GRID_SIZE;
+            #endif
+              int maxStep = _StepMult * int(ceil(length(gridSize)));
               float origStepSizeContracted = VOXEL_SIZE / float(_StepMult);
             
               [loop]
