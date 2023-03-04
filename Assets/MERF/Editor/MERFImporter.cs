@@ -116,7 +116,7 @@ public class MERFImporter {
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
-    private static string GetFeatureTextureAssetPath(MERFScene scene) {
+    private static string GetFeatureVolumeTextureAssetPath(MERFScene scene) {
         string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Feature Volume Texture.asset";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
@@ -263,8 +263,10 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        //!NOTE: Unity does NOT load this as an RGB24 texture. PNGs are always loaded as ARGB32.
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.RGB24, mipChain: false, linear: true) {
+        // !!! Unity's LoadImage() does NOT respect the texture format specified in the input texture!
+        // It always loads this as ARGB32, no matter the format specified here.
+        // Ideally we'd directly load an RGB24 texture.
+        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
         };
@@ -301,13 +303,14 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
+        // Unity's LoadImage() always loads this as ARGB32, no matter the format specified here
+        Texture2D planeRGBImages = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
         };
-        atlasIndexImage.LoadImage(atlasIndexData);
+        planeRGBImages.LoadImage(atlasIndexData);
 
-        return atlasIndexImage;
+        return planeRGBImages;
     }
 
     private static async Task<Texture2D> DownloadPlaneFeaturesRGBPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
@@ -323,13 +326,14 @@ public class MERFImporter {
             File.WriteAllBytes(path, atlasIndexData);
         }
 
-        Texture2D atlasIndexImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
+        // Unity's LoadImage() always loads this as ARGB32, no matter the format specified here
+        Texture2D planeFeaturesImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
         };
-        atlasIndexImage.LoadImage(atlasIndexData);
+        planeFeaturesImage.LoadImage(atlasIndexData);
 
-        return atlasIndexImage;
+        return planeFeaturesImage;
     }
 
     private static async Task<Texture2D[]> DownloadRGBVolumeDataAsync(MERFSources sceneUrls, MERFScene scene, SceneParams sceneParams) {
@@ -347,7 +351,8 @@ public class MERFImporter {
                 File.WriteAllBytes(path, rgbVolumeData);
             }
 
-            Texture2D rgbVolumeImage = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false, linear: true) {
+            // Unity's LoadImage() always loads this as ARGB32, no matter the format specified here
+            Texture2D rgbVolumeImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 alphaIsTransparency = true
@@ -375,7 +380,8 @@ public class MERFImporter {
                 File.WriteAllBytes(path, featureVolumeData);
             }
 
-            Texture2D featureVolumeImage = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false, linear: true) {
+            // Unity's LoadImage() always loads this as ARGB32, no matter the format specified here
+            Texture2D featureVolumeImage = new Texture2D(2, 2, TextureFormat.ARGB32, mipChain: false, linear: true) {
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp
             };
@@ -523,7 +529,7 @@ public class MERFImporter {
         int volumeHeight = sceneParams.AtlasHeight;
         int volumeDepth = sceneParams.AtlasDepth;
         int sliceDepth = sceneParams.SliceDepth;
-        int numBytes = volumeWidth * volumeHeight * sliceDepth; // bytes per atlassed texture
+        int numPixels = volumeWidth * volumeHeight * sliceDepth; // pixels per atlassed texture
 
         Texture3D rgbVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.RGB24, FilterMode.Bilinear);
         Texture3D densityVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.R8, FilterMode.Bilinear);
@@ -532,13 +538,13 @@ public class MERFImporter {
 
         for (int i = 0; i < rgbImages.Length; i++) {
             NativeArray<byte> rgbaImage = rgbImages[i].GetRawTextureData<byte>();
-            int baseIndexRGB = i * numBytes * 3;
-            int baseIndexAlpha = i * numBytes;
+            int baseIndexRGB = i * numPixels * 3;
+            int baseIndexAlpha = i * numPixels;
 
             // The png's RGB channels hold RGB and the png's alpha channel holds
             // density. We split apart RGB and density and upload to two distinct
             // textures, so we can separately query these quantities.
-            for (int j = 0; j < numBytes; j++) {
+            for (int j = 0; j < numPixels; j++) {
                 rgbPixels[baseIndexRGB + (j * 3) + 0] = rgbaImage[j * 4 + 0];
                 rgbPixels[baseIndexRGB + (j * 3) + 1] = rgbaImage[j * 4 + 1];
                 rgbPixels[baseIndexRGB + (j * 3) + 2] = rgbaImage[j * 4 + 2];
@@ -556,6 +562,34 @@ public class MERFImporter {
 
         _context.RGBVolumeTexture = rgbVolumeTexture;
         _context.DensityVolumeTexture = densityVolumeTexture;
+    }
+
+    private static void CreateFeatureVolumeTexture(MERFScene scene, Texture2D[] featureImages, SceneParams sceneParams) {
+        Debug.Assert(featureImages.Length == sceneParams.NumSlices);
+        int volumeWidth = sceneParams.AtlasWidth;
+        int volumeHeight = sceneParams.AtlasHeight;
+        int volumeDepth = sceneParams.AtlasDepth;
+        int sliceDepth = sceneParams.SliceDepth;
+        int numSlices = sceneParams.NumSlices;
+        int numPixels = volumeWidth * volumeHeight * sliceDepth;    // pixels per atlassed feature texture
+
+        Texture3D featureVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.ARGB32, FilterMode.Bilinear);
+        NativeArray<Color32> featurePixels = featureVolumeTexture.GetPixelData<Color32>(0);
+
+        for (int i = 0; i < numSlices; i++) {
+            NativeArray<Color32> _featureSlice = featureImages[i].GetRawTextureData<Color32>();
+            NativeSlice<Color32> dst = new NativeSlice<Color32>(featurePixels, i * numPixels, numPixels);
+            NativeSlice<Color32> src = new NativeSlice<Color32>(_featureSlice);
+
+            dst.CopyFrom(src);
+        }
+
+        featureVolumeTexture.Apply();
+
+        string featureVolumeAssetPath = GetFeatureVolumeTextureAssetPath(scene);
+        CreateAsset(featureVolumeTexture, featureVolumeAssetPath);
+
+        _context.FeatureVolumeTexture = featureVolumeTexture;
     }
 
     private static Texture3D CreateVolumeTexture(int width, int height, int depth, TextureFormat format, FilterMode filterMode) {
@@ -734,6 +768,7 @@ public class MERFImporter {
 
         if (useSparseGrid) {
             CreateRGBAndDensityVolumeTexture(scene, rgbImages, sceneParams);
+            CreateFeatureVolumeTexture(scene, featureImages, sceneParams);
         }
 
         Progress.Report(progressId, 0.7f, $"{AssemblyInfo}'{objName}'...");
