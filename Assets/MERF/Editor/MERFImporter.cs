@@ -106,13 +106,13 @@ public class MERFImporter {
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
-    private static string GetRGBTextureAssetPath(MERFScene scene) {
+    private static string GetRGBVolumeTextureAssetPath(MERFScene scene) {
         string path = $"{GetBasePath(scene)}/Textures/{scene.String()} RGB Volume Texture.asset";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
-    private static string GetAlphaTextureAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Alpha Volume Texture.asset";
+    private static string GetDensityVolumeTextureAssetPath(MERFScene scene) {
+        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Density Volume Texture.asset";
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
@@ -396,14 +396,8 @@ public class MERFImporter {
 
         string atlasAssetPath = GetAtlasTextureAssetPath(scene);
 
-        // already exists
-        if (File.Exists(atlasAssetPath)) {
-            return;
-        }
-
         // initialize 3D texture
         Texture3D atlasIndex3DVolume = CreateVolumeTexture(width, height, depth, TextureFormat.RGB24, FilterMode.Point);
-        atlasIndex3DVolume.name = Path.GetFileNameWithoutExtension(atlasAssetPath);
 
         // load data into 3D textures
         NativeArray<byte> rawAtlasIndexData = atlasIndexImage.GetRawTextureData<byte>();
@@ -422,7 +416,7 @@ public class MERFImporter {
         atlasVolumeData.Dispose();
 
         CreateAsset(atlasIndex3DVolume, atlasAssetPath);
-        _context.AtlasIndex3DVolume = atlasIndex3DVolume;
+        _context.AtlasIndexTexture = atlasIndex3DVolume;
     }
 
     /// <summary>
@@ -432,7 +426,7 @@ public class MERFImporter {
         //if (useTriplane)
         int planeWidth = sceneParams.PlaneWidth0;
         int planeHeight = sceneParams.PlaneHeight0;
-        Vector2 planeSize = new Vector2(planeWidth, planeHeight);
+
         Texture2DArray planeRgbTexture       = CreateTextureArray(planeWidth, planeHeight, TextureFormat.RGB24);
         Texture2DArray planeDensityTexture   = CreateTextureArray(planeWidth, planeHeight, TextureFormat.R8);
         Texture2DArray planeFeaturesTexture  = CreateTextureArray(planeWidth, planeHeight, TextureFormat.RGBA32);
@@ -509,7 +503,6 @@ public class MERFImporter {
             int h = w;
             int d = w;
             Texture3D occupancyGridTexture = CreateVolumeTexture(w, h, d, TextureFormat.R8, FilterMode.Point);
-            occupancyGridTexture.name = Path.GetFileNameWithoutExtension(occupancyAssetPath);
             occupancyGridTextures[occupancyGridIndex] = occupancyGridTexture;
             occupancyGridSizes[occupancyGridIndex] = new Vector4(w, h, d, 0f);
             occupancyVoxelSizes[occupancyGridIndex] = baseVoxelSize * occupancyGridBlockSize;
@@ -522,6 +515,47 @@ public class MERFImporter {
         _context.OccupancyGridTextures = occupancyGridTextures;
         _context.OccupancyGridSizes = occupancyGridSizes;
         _context.OccupancyVoxelSizes = occupancyVoxelSizes;
+    }
+
+    private static void CreateRGBAndDensityVolumeTexture(MERFScene scene, Texture2D[] rgbImages, SceneParams sceneParams) {
+        Debug.Assert(rgbImages.Length == sceneParams.NumSlices);
+        int volumeWidth = sceneParams.AtlasWidth;
+        int volumeHeight = sceneParams.AtlasHeight;
+        int volumeDepth = sceneParams.AtlasDepth;
+        int sliceDepth = sceneParams.SliceDepth;
+        int numBytes = volumeWidth * volumeHeight * sliceDepth; // bytes per atlassed texture
+
+        Texture3D rgbVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.RGB24, FilterMode.Bilinear);
+        Texture3D densityVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.R8, FilterMode.Bilinear);
+        NativeArray<byte> rgbPixels = rgbVolumeTexture.GetPixelData<byte>(0);
+        NativeArray<byte> densityPixels = densityVolumeTexture.GetPixelData<byte>(0);
+
+        for (int i = 0; i < rgbImages.Length; i++) {
+            NativeArray<byte> rgbaImage = rgbImages[i].GetRawTextureData<byte>();
+            int baseIndexRGB = i * numBytes * 3;
+            int baseIndexAlpha = i * numBytes;
+
+            // The png's RGB channels hold RGB and the png's alpha channel holds
+            // density. We split apart RGB and density and upload to two distinct
+            // textures, so we can separately query these quantities.
+            for (int j = 0; j < numBytes; j++) {
+                rgbPixels[baseIndexRGB + (j * 3) + 0] = rgbaImage[j * 4 + 0];
+                rgbPixels[baseIndexRGB + (j * 3) + 1] = rgbaImage[j * 4 + 1];
+                rgbPixels[baseIndexRGB + (j * 3) + 2] = rgbaImage[j * 4 + 2];
+                densityPixels[baseIndexAlpha + j] = rgbaImage[j * 4 + 3];
+            }
+        }
+
+        rgbVolumeTexture.Apply();
+        densityVolumeTexture.Apply();
+
+        string rgbVolumeAssetPath = GetRGBVolumeTextureAssetPath(scene);
+        string densityVolumeAssetPath = GetDensityVolumeTextureAssetPath(scene);
+        CreateAsset(rgbVolumeTexture, rgbVolumeAssetPath);
+        CreateAsset(densityVolumeTexture, densityVolumeAssetPath);
+
+        _context.RGBVolumeTexture = rgbVolumeTexture;
+        _context.DensityVolumeTexture = densityVolumeTexture;
     }
 
     private static Texture3D CreateVolumeTexture(int width, int height, int depth, TextureFormat format, FilterMode filterMode) {
@@ -539,7 +573,7 @@ public class MERFImporter {
         if (existing != null) {
             AssetDatabase.DeleteAsset(path);
         }
-
+        obj.name = Path.GetFileNameWithoutExtension(path);
         AssetDatabase.CreateAsset(obj, path);
     }
 
@@ -661,8 +695,6 @@ public class MERFImporter {
 
         SceneParams sceneParams = await DownloadSceneParamsAsync(sceneUrls, scene);
 
-        long numTextures = occupancyGridBlockSizes.Length;
-
         byte[][] occupancyGrid = await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
 
         bool useSparseGrid = sceneParams.VoxelSize > 0;
@@ -670,13 +702,11 @@ public class MERFImporter {
         if (useSparseGrid) {
             // Load the indirection grid.
             atlasIndexTask = DownloadAtlasIndexPNGAsync(sceneUrls, scene);
-            numTextures += 2 * sceneParams.NumSlices;
         }
 
         Texture2D[] planeImages = null;
         bool useTriplane = true; //sceneParams.ContainsKey("voxel_size_triplane");
         if (useTriplane) {
-            numTextures += 6;
             planeImages = await DownloadPlanePNGsAsync(sceneUrls, scene);
         }
 
@@ -701,6 +731,12 @@ public class MERFImporter {
         CreateOccupancyGridTexture(scene, occupancyGrid, sceneParams);
 
         Progress.Report(progressId, 0.6f, $"{AssemblyInfo}'{objName}'...");
+
+        if (useSparseGrid) {
+            CreateRGBAndDensityVolumeTexture(scene, rgbImages, sceneParams);
+        }
+
+        Progress.Report(progressId, 0.7f, $"{AssemblyInfo}'{objName}'...");
 
         CreateMaterial(scene, sceneParams);
 

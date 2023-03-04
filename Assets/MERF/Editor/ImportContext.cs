@@ -4,7 +4,6 @@ using UnityEngine;
 /// Carries information for all the assets created during import of a MERF scene.
 /// </summary>
 public class ImportContext {
-    public Texture3D AtlasIndex3DVolume;
     public Texture2DArray PlaneRgbTexture;
     public Texture2DArray PlaneDensityTexture;
     public Texture2DArray PlaneFeaturesTexture;
@@ -16,8 +15,8 @@ public class ImportContext {
     public Texture2D WeightsTexOne;
     public Texture2D WeightsTexTwo;
     public Material Material;
-    public Texture2D DensityVolumeTexture;
-    public Texture2D RGBVolumeTexture;
-    public Texture2D FeatureVolumeTexture;
-    public Texture2D AtlasIndexTexture;
+    public Texture3D DensityVolumeTexture;
+    public Texture3D RGBVolumeTexture;
+    public Texture3D FeatureVolumeTexture;
+    public Texture3D AtlasIndexTexture;
 }
