@@ -60,7 +60,7 @@ public static class ShaderTemplate {
             float3 vOrigin;
             float3 vDirection;
 
-            float3x3 _WorldspaceROpengl;
+            float4x4 _Worldspace_T_opengl;
             int _DisplayMode;
             float4 _MinPosition;
 
@@ -1296,7 +1296,7 @@ public static class ShaderTemplate {
               if ((_DisplayMode == DISPLAY_NORMAL ||
                    _DisplayMode == DISPLAY_VIEW_DEPENDENT)) {
                 accumulatedColor += evaluateNetwork(accumulatedColor, accumulatedFeatures,
-                                         mul(_WorldspaceROpengl, normalize(vDirection)));
+                                         mul(_Worldspace_T_opengl, normalize(vDirection)));
               }
               return fixed4(accumulatedColor, 1.0);
             }

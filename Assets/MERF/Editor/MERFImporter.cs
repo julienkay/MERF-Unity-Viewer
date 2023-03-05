@@ -678,6 +678,20 @@ public class MERFImporter {
         material.SetTexture("_WeightsOne"           , _context.WeightsTexOne);
         material.SetTexture("_WeightsTwo"           , _context.WeightsTexTwo);
 
+        float[][] m = sceneParams.WorldspaceTOpengl;
+        Matrix4x4 worldspaceTOpengl = new Matrix4x4 {
+            m00 = m[0][0],
+            m01 = m[0][1],
+            m02 = m[0][2],
+            m10 = m[1][0],
+            m11 = m[1][1],
+            m12 = m[1][2],
+            m20 = m[2][0],
+            m21 = m[2][1],
+            m22 = m[2][2]
+        };
+        material.SetMatrix("_Worldspace_T_opengl", worldspaceTOpengl);
+
         material.SetVector("_MinPosition", new Vector4(
             (float)sceneParams.MinX,
             (float)sceneParams.MinY,
