@@ -57,9 +57,6 @@ public static class ShaderTemplate {
 
             #include ""UnityCG.cginc""
 
-            float3 vOrigin;
-            float3 vDirection;
-
             float4x4 _Worldspace_T_opengl;
             int _DisplayMode;
             float4 _MinPosition;
@@ -1296,7 +1293,7 @@ public static class ShaderTemplate {
               if ((_DisplayMode == DISPLAY_NORMAL ||
                    _DisplayMode == DISPLAY_VIEW_DEPENDENT)) {
                 accumulatedColor += evaluateNetwork(accumulatedColor, accumulatedFeatures,
-                                         mul(_Worldspace_T_opengl, normalize(vDirection)));
+                                         mul(_Worldspace_T_opengl, normalize(i.direction)));
               }
               return fixed4(accumulatedColor, 1.0);
             }
