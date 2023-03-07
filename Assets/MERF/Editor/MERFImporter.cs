@@ -537,6 +537,7 @@ public class MERFImporter {
         NativeArray<byte> densityPixels = densityVolumeTexture.GetPixelData<byte>(0);
 
         for (int i = 0; i < rgbImages.Length; i++) {
+            // rgbaImage is in ARGB format!
             NativeArray<byte> rgbaImage = rgbImages[i].GetRawTextureData<byte>();
             int baseIndexRGB = i * numPixels * 3;
             int baseIndexAlpha = i * numPixels;
@@ -545,10 +546,10 @@ public class MERFImporter {
             // density. We split apart RGB and density and upload to two distinct
             // textures, so we can separately query these quantities.
             for (int j = 0; j < numPixels; j++) {
-                rgbPixels[baseIndexRGB + (j * 3) + 0] = rgbaImage[j * 4 + 0];
-                rgbPixels[baseIndexRGB + (j * 3) + 1] = rgbaImage[j * 4 + 1];
-                rgbPixels[baseIndexRGB + (j * 3) + 2] = rgbaImage[j * 4 + 2];
-                densityPixels[baseIndexAlpha + j] = rgbaImage[j * 4 + 3];
+                rgbPixels[baseIndexRGB + (j * 3) + 0] = rgbaImage[j * 4 + 1];
+                rgbPixels[baseIndexRGB + (j * 3) + 1] = rgbaImage[j * 4 + 2];
+                rgbPixels[baseIndexRGB + (j * 3) + 2] = rgbaImage[j * 4 + 3];
+                densityPixels[baseIndexAlpha + j] = rgbaImage[j * 4];
             }
         }
 
