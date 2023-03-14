@@ -23,7 +23,7 @@ public static class ShaderTemplate {
         _WeightsTwo            (""Weights Two""          , 2D     ) = ""white"" {}
 	    _MinPosition           (""Min Position""         , Vector ) = (0, 0, 0, 0)
         _StepMult              (""StepMult""             , Integer) = 1
-        
+
         _PlaneRgb              (""PlaneRgb""             , 2DArray) = """" {}
         _PlaneDensity          (""PlaneDensity""         , 2DArray) = """" {}
         _PlaneFeatures         (""PlaneFeatures""        , 2DArray) = """" {}
@@ -46,7 +46,6 @@ public static class ShaderTemplate {
 
         Pass {
             CGPROGRAM
-            #define UNITY_SHADER_NO_UPGRADE 
             #pragma shader_feature_local USE_TRIPLANE
             #pragma shader_feature_local USE_SPARSE_GRID
             #pragma shader_feature_local LARGER_STEPS_WHEN_OCCLUDED
@@ -155,7 +154,7 @@ public static class ShaderTemplate {
             return VIEWDEPENDENCY;
         }
     }
-    
+
     private const string HEADER = @"";
 
     private const string VIEWDEPENDENCY = @"float indexToPosEnc(float3 dir, int index) {
@@ -613,7 +612,7 @@ public static class ShaderTemplate {
                 return 1.0 / (1.0 + exp(-result.xyz)); // Sigmoid
             }
 ";
-    
+
     private const string FRAGMENT = @"float2 rayAabbIntersection(float3 aabbMin, float3 aabbMax, float3 origin, float3 invDirection) {
               float3 t1 = (aabbMin - origin) * invDirection;
               float3 t2 = (aabbMax - origin) * invDirection;
@@ -622,11 +621,11 @@ public static class ShaderTemplate {
               return float2(max(tMin.x, max(tMin.y, tMin.z)),
                           min(tMax.x, min(tMax.y, tMax.z)));
             }
-            
+
             #define SIGMOID(DTYPE) DTYPE sigmoid(DTYPE x) { return 1.0 / (1.0 + exp(-x)); }
             SIGMOID(float3)
             SIGMOID(float4)
-            
+
             #define DENORMALIZE(DTYPE)\
             DTYPE denormalize(DTYPE x, float min, float max) {\
                 return min + x * (max - min);\
@@ -634,18 +633,18 @@ public static class ShaderTemplate {
             DENORMALIZE(float)
             DENORMALIZE(float3)
             DENORMALIZE(float4)
-            
+
             float densityActivation(float x) { return exp(x - 1.0f); }
-            
+
             float densityToAlpha(float x, float stepSize) {
               return 1.0 - exp(-x * stepSize);
             }
-            
+
             // Component-wise maximum
             float max3 (float3 v) {
               return max (max (v.x, v.y), v.z);
             }
-            
+
             // Projective contraction
             float3 contract(float3 x) {
               float3 xAbs = abs(x);
@@ -665,7 +664,7 @@ public static class ShaderTemplate {
               }
               return z;
             }
-            
+
             // Inverse projective contraction
             float3 inverseContract(float3 z) {
               float3 zAbs = abs(z);
@@ -686,7 +685,7 @@ public static class ShaderTemplate {
               }
               return x;
             }
-            
+
             // Sorts an array of length 5 in-place. This is hardcoded to 5 since a ray
             // traverses up to 5 quadrants.
             void sort5(inout float array[5], int arrayLength) {
@@ -701,7 +700,7 @@ public static class ShaderTemplate {
                 }
               }
             }
-            
+
             float  lt(float a, float b){ return a < b ? 1.0 : 0.0;}
             float  lessThan(float  a,float b){ return lt(a,b);}
             float2 lessThan(float2 a,float2 b){ return float2(lt(a.x,b.x),lt(a.y,b.y));}
@@ -713,7 +712,7 @@ public static class ShaderTemplate {
             float3 greaterThan(float3 a, float3 b){ return float3(gt(a.x,b.x),gt(a.y,b.y),gt(a.z,b.z));}
             float4 greaterThan(float4 a, float4 b){ return float4(gt(a.x,b.x),gt(a.y,b.y),gt(a.z,b.z),gt(a.w,b.w));}
 
-            // A solution is invalid if it does not lie on the plane or is outside of 
+            // A solution is invalid if it does not lie on the plane or is outside of
             // the bounding box
             #define INF 1e25
             #define SOLUTION_CHECK(T, P, AXIS)\
@@ -722,7 +721,7 @@ public static class ShaderTemplate {
                 any(greaterThan(q, aabbMax + eps))) {\
               T.AXIS = -INF;\
             }
-            
+
             // First checks wether the computed cancidate solutions are actually lieing on
             // the bounding box. Then of all the valid intersections we return the one with
             // the highest t-value (tMax).
@@ -736,7 +735,7 @@ public static class ShaderTemplate {
               float3 aabbMin, float3 aabbMax) {
               float eps = 1e-3;
               float3 q;
-            
+
               // Invalid solutions are set to -INF and therefore ignored.
               SOLUTION_CHECK(t0, aabbMin, x)
               SOLUTION_CHECK(t0, aabbMin, y)
@@ -746,11 +745,11 @@ public static class ShaderTemplate {
               SOLUTION_CHECK(t1, aabbMax, z)
               return max(max3(t0), max3(t1));
             }
-            
+
             // The following functions compute intersections between rays and axis-aligned
             // planes in contracted space.
             // The seven functions correspond to seven cases assiociated with the seven
-            // quadrants present in projective contraction. The functions are derived 
+            // quadrants present in projective contraction. The functions are derived
             // by solving contract(o+t*d) for t.
             // o: origin
             // d: direction
@@ -760,7 +759,7 @@ public static class ShaderTemplate {
             float3 h(float3 o, float3 d, float3 p) {
               return (p - o) / d;
             }
-            
+
             float3 h0(float3 o, float3 d, float3 p) {
               float3 t;
               t.x = (1.0 / (2.0 - p.x) - o.x) / d.x;
@@ -768,7 +767,7 @@ public static class ShaderTemplate {
               t.z = (o.z - p.z * o.x) / (p.z * d.x - d.z);
               return t;
             }
-            
+
             float3 h1(float3 o, float3 d, float3 p) {
               float3 t;
               t.x = (o.x - p.x * o.y) / (p.x * d.y - d.x);
@@ -776,7 +775,7 @@ public static class ShaderTemplate {
               t.z = (o.z - p.z * o.y) / (p.z * d.y - d.z);
               return t;
             }
-            
+
             float3 h2(float3 o, float3 d, float3 p) {
               float3 t;
               t.x = (o.x - p.x * o.z) / (p.x * d.z - d.x);
@@ -784,7 +783,7 @@ public static class ShaderTemplate {
               t.z = (1.0 / (2.0 - p.z) - o.z) / d.z;
               return t;
             }
-            
+
             float3 h3(float3 o, float3 d, float3 p) {
               float3 t;
               t.x = (1.0 / (-p.x - 2.0) - o.x) / d.x;
@@ -792,7 +791,7 @@ public static class ShaderTemplate {
               t.z = -(o.x*p.z + o.z) / (d.x*p.z + d.z);
               return t;
             }
-            
+
             float3 h4(float3 o, float3 d, float3 p) {
               float3 t;
               t.x = -(o.y*p.x + o.x) / (d.y*p.x + d.x);
@@ -800,7 +799,7 @@ public static class ShaderTemplate {
               t.z = -(o.y*p.z + o.z) / (d.y*p.z + d.z);
               return t;
             }
-            
+
             float3 h5(float3 o, float3 d, float3 p) {
               float3 t;
               t.x = -(o.z*p.x + o.x) / (d.z*p.x + d.x);
@@ -808,13 +807,13 @@ public static class ShaderTemplate {
               t.z = (1.0 / (-p.z - 2.0) - o.z) / d.z;
               return t;
             }
-            
+
             struct Quadrants {
                 float array[5];
             };
 
             // Intersects ray with all seven quadrants to obtain t-values at which the ray
-            // exits a quadrant. We need to know these t-values since whenever we 
+            // exits a quadrant. We need to know these t-values since whenever we
             // enter a new quadrant the origin and direction of the ray in contracted space
             // needs to be recomputed.
             Quadrants findTraversedQuadrants(float3 o, float3 d, float near) {
@@ -829,14 +828,14 @@ public static class ShaderTemplate {
               float3 t0;
               float3 t1;
               float tMax;
-            
+
               // core region
               aabbMin = float3(-1.0, -1.0, -1.0);
               aabbMax = float3(1.0, 1.0, 1.0);
               t0 = h(o, d, aabbMin);
               t1 = h(o, d, aabbMax);
               tMax = getTMax(o, d, t0, t1, aabbMin, aabbMax);
-            
+
               // We discard intersections with quadrants that lie behind the camera
               // (tMax < near). When a quadrant is not traversed, getTMax returns -INF
               // and therefore this check also discards these values.
@@ -844,7 +843,7 @@ public static class ShaderTemplate {
                 listQuadrantTMax[numQuadrantsTraversed] = tMax;
                 numQuadrantsTraversed++;
               }
-            
+
               // argmax(|o+t*d|) = 0, o[0]+t*d[0] >= 0
               aabbMin = float3( c1, -c1, -c1);
               aabbMax = float3( c2,  c1,  c1);
@@ -855,7 +854,7 @@ public static class ShaderTemplate {
                 listQuadrantTMax[numQuadrantsTraversed] = tMax;
                 numQuadrantsTraversed++;
               }
-            
+
               // argmax(|o+t*d|) = 1, o[1]+t*d[1] >= 0
               aabbMin = float3(-c1, c1, -c1);
               aabbMax = float3(c1, c2, c1);
@@ -866,7 +865,7 @@ public static class ShaderTemplate {
                 listQuadrantTMax[numQuadrantsTraversed] = tMax;
                 numQuadrantsTraversed++;
               }
-            
+
               // argmax(|o+t*d|) = 2, o[2]+t*d[2] >= 0
               aabbMin = float3(-c1, -c1, c1);
               aabbMax = float3(c1, c1, c2);
@@ -877,7 +876,7 @@ public static class ShaderTemplate {
                 listQuadrantTMax[numQuadrantsTraversed] = tMax;
                 numQuadrantsTraversed++;
               }
-            
+
               // argmax(|o+t*d|) = 0, o[0]+t*d[0] < 0
               aabbMin = float3(-c2, -c1, -c1);
               aabbMax = float3(-c1, c1, c1);
@@ -888,7 +887,7 @@ public static class ShaderTemplate {
                 listQuadrantTMax[numQuadrantsTraversed] = tMax;
                 numQuadrantsTraversed++;
               }
-            
+
               // argmax(|o+t*d|) = 1, o[1]+t*d[1] < 0
               aabbMin = float3(-c1, -c2, -c1);
               aabbMax = float3(c1, -c1, c1);
@@ -899,7 +898,7 @@ public static class ShaderTemplate {
                 listQuadrantTMax[numQuadrantsTraversed] = tMax;
                 numQuadrantsTraversed++;
               }
-            
+
               // argmax(|o+t*d|) = 2, o[2]+t*d[2] < 0
               aabbMin = float3(-c1, -c1, -c2);
               aabbMax = float3(c1, c1, -c1);
@@ -910,18 +909,18 @@ public static class ShaderTemplate {
                 listQuadrantTMax[numQuadrantsTraversed] = tMax;
                 numQuadrantsTraversed++;
               }
-            
+
               sort5(listQuadrantTMax, numQuadrantsTraversed);
               return listQuadrantTMax;
             }
-            
+
             struct QuadrantSetupResults {
               float3 oContracted; // ray origin in contracted space
               float3 dContracted; // ray direction in contracted space
               float2 quadrantTMinMaxContracted; // contraction-space t-values at which the ray
               // enters or exits the current quadrant
             };
-            
+
             // This function is called whenever we enter a new quadrant. We compute
             // origin and direction of the ray in contracted space and compute for which
             // t-value (in contracted space) the ray enters/exits the quadrant
@@ -930,12 +929,12 @@ public static class ShaderTemplate {
             // entered quadrant.
             QuadrantSetupResults quadrantSetup(float3 o, float3 d, float tP, float tQ) {
               QuadrantSetupResults r;
-            
+
               // Which quadrant did we enter?
               float3 xP = o + tP * d;
               float3 xAbs = abs(xP);
               float xMax = max3(xAbs);
-            
+
               // Get the AABB of the quadrant the point x is in
               // Non-squash case, central quadrant:
               float3 aabbMin = float3(-1.0, -1.0, -1.0);
@@ -953,14 +952,14 @@ public static class ShaderTemplate {
                   aabbMax.z = xP.z > 0.0 ? 2.0 : -1.0;
                 }
               }
-            
+
               // Estimate the direction of the ray in contracted space by computing the
               // vector difference with two different t-values that are guanteed to
               // correspond to points within the current quadrant
               r.oContracted = contract(xP);
               float3 zQ = contract(o + tQ * d);
               r.dContracted = normalize(zQ - r.oContracted);
-            
+
               // When is the ray exiting the current quadrant? We need this value in
               // order to know when we enter a new quadrant or when to terminate ray marching.
               // Note that im findTraversedQuadrants word-space t-values are computed, while
@@ -969,7 +968,7 @@ public static class ShaderTemplate {
               // within a quadrant. With help of these values we can generate two points
               // in contracted space from which we can estimate the ray origin and direction
               // in contracted space. However, once we raymarch in contracted space we need
-              // the contraction-space t-value to conveniently check whether we are still 
+              // the contraction-space t-value to conveniently check whether we are still
               // in the same quadrant. Alternatively, one could convert the contraction-
               // space point to a world-space point and estimate a world space t-value, but
               // this has been found to be numerically unstable.
@@ -977,13 +976,13 @@ public static class ShaderTemplate {
                   rayAabbIntersection(aabbMin, aabbMax, r.oContracted, 1.0 / r.dContracted);
               return r;
             }
-            
-            
+
+
             struct OccupancyQueryResults {
               bool inEmptySpace;
               float tBlockMax;
             };
-            
+
             OccupancyQueryResults queryOccupancyGrid(
                 float3 z, float3 _MinPosition, float3 oContracted,
                 float3 invDContracted, sampler3D occupancyGrid,
@@ -1006,8 +1005,8 @@ public static class ShaderTemplate {
               r.tBlockMax = rayAabbIntersection(blockMin, blockMax, oContracted, invDContracted).y;
               return r;
             }
-            
-            
+
+
             #define QUERY_OCCUPANCY_GRID(tBlockMax_L, occupancyGrid, _VoxelSizeOccupancy, _GridSizeOccupancy)\
             if (tContracted > tBlockMax_L) {\
               occupancyQueryResults =\
@@ -1019,7 +1018,7 @@ public static class ShaderTemplate {
                 continue;\
               }\
             }
-            
+
             fixed4 frag (v2f i) : SV_Target {
               // See the DisplayMode enum at the top of this file.
               // Runs the full model with view dependence.
@@ -1032,12 +1031,12 @@ public static class ShaderTemplate {
               const int DISPLAY_VIEW_DEPENDENT = 3;
               // Only shows the coarse block grid.
               const int DISPLAY_COARSE_GRID = 4;
-            
+
               // Set up the ray parameters in world space..
               float nearWorld = _ProjectionParams.y;
               half3 originWorld = i.origin.xyz;
               half3 directionWorld = normalize(i.direction);
-            
+
             #ifdef USE_SPARSE_GRID
               int3 iGridSize = int3(round(_GridSize));
               int iBlockSize = int(round(_BlockSize));
@@ -1045,28 +1044,28 @@ public static class ShaderTemplate {
               int3 iBlockGridSize = iBlockGridBlocks * iBlockSize;
               float3 blockGridSize = float3(iBlockGridSize);
             #endif
-            
+
               float listQuadrantTMax[5] = findTraversedQuadrants(originWorld,
                   directionWorld, nearWorld);
-            
+
               float tP = nearWorld;
               float tQ = lerp(nearWorld, listQuadrantTMax[0], 0.5);
-            
+
               QuadrantSetupResults r = quadrantSetup(originWorld, directionWorld, tP, tQ);
               float tContracted = 0.0;
               int quadrantIndex = 1;
-            
+
               float tBlockMax_L0 = -INF;
               float tBlockMax_L1 = -INF;
               float tBlockMax_L2 = -INF;
               float tBlockMax_L3 = -INF;
               float tBlockMax_L4 = -INF;
-            
+
               float visibility = 1.0;
               float3 accumulatedColor = float3(0.0, 0.0, 0.0);
               float4 accumulatedFeatures = float4(0.0, 0.0, 0.0, 0.0);
               int step = 0;
-            
+
             #ifdef USE_TRIPLANE
               #define GRID_SIZE _PlaneSize
               #define VOXEL_SIZE _VoxelSizeTriplane
@@ -1081,7 +1080,7 @@ public static class ShaderTemplate {
             #endif
               int maxStep = _StepMult * int(ceil(length(gridSize)));
               float origStepSizeContracted = VOXEL_SIZE / float(_StepMult);
-            
+
               [loop]
               while (step < maxStep && visibility > 1.0 / 255.0) {
                 step++;
@@ -1091,15 +1090,15 @@ public static class ShaderTemplate {
             #else
                 float stepSizeContracted = origStepSizeContracted;
             #endif
-            
+
                 // check if the ray is exiting the current quadrant
                 if (tContracted > r.quadrantTMinMaxContracted.y) {
                   float3 z = r.oContracted + r.quadrantTMinMaxContracted.y * r.dContracted;
-            
+
                   // Check if we hit an outer wall
                   // If so, we can terminate the ray as the ray won't enter another quadrant
                   if (max3(abs(z)) >= 2.0 - 1e-3) break;
-            
+
                   // sStup ray in the new quadrant
                   // By using the precomputed t-values we can find two points that are guranteed
                   // to lie within the new quadrant.
@@ -1108,7 +1107,7 @@ public static class ShaderTemplate {
                   r = quadrantSetup(originWorld, directionWorld, tP, tQ);
                   tContracted = r.quadrantTMinMaxContracted.x;
                   quadrantIndex++;
-            
+
                   // Reset all tMax values to force occupancy queries
                   tBlockMax_L0 = -INF;
                   tBlockMax_L1 = -INF;
@@ -1116,10 +1115,10 @@ public static class ShaderTemplate {
                   tBlockMax_L3 = -INF;
                   tBlockMax_L4 = -INF;
                 }
-            
+
                 // Position of current sample in contracted space
                 float3 z = r.oContracted + tContracted * r.dContracted;
-            
+
                 // Hierarchical empty space skipping
                 float3 invDContracted = 1.0 / r.dContracted;
                 OccupancyQueryResults occupancyQueryResults;
@@ -1128,12 +1127,12 @@ public static class ShaderTemplate {
                 QUERY_OCCUPANCY_GRID(tBlockMax_L1, OccupancyGrid_L1, VoxelSizeOccupancy_L1,
                                      _GridSizeOccupancy_L1)
                 QUERY_OCCUPANCY_GRID(tBlockMax_L2, OccupancyGrid_L2, VoxelSizeOccupancy_L2,
-                                     _GridSizeOccupancy_L2)             
+                                     _GridSizeOccupancy_L2)
                 QUERY_OCCUPANCY_GRID(tBlockMax_L3, OccupancyGrid_L3, VoxelSizeOccupancy_L3,
                                      _GridSizeOccupancy_L3)
                 QUERY_OCCUPANCY_GRID(tBlockMax_L4, OccupancyGrid_L4, VoxelSizeOccupancy_L4,
                                      _GridSizeOccupancy_L4)
-             
+
                 // We are in occupied space
                 // compute grid positions for the sparse 3D grid and on the triplane planes
             #ifdef USE_SPARSE_GRID
@@ -1142,15 +1141,15 @@ public static class ShaderTemplate {
             #ifdef USE_TRIPLANE
                 float3 posTriplaneGrid = (z - _MinPosition) / _VoxelSizeTriplane;
             #endif
-            
+
                 // Calculate where the next sample would land in order to compute the
                 // step size in world space (required for density-to-alpha conversion)
                 // make sure not to shoot ouf the current quadrant
-                float tContractedNext = min(tContracted + stepSizeContracted, r.quadrantTMinMaxContracted.y); 
+                float tContractedNext = min(tContracted + stepSizeContracted, r.quadrantTMinMaxContracted.y);
                 // Position of the next sample in contracted space
-                float3 zNext = r.oContracted + tContractedNext * r.dContracted; 
+                float3 zNext = r.oContracted + tContractedNext * r.dContracted;
                 float stepSizeWorld = distance(inverseContract(zNext), inverseContract(z));
-            
+
             #ifdef USE_SPARSE_GRID
                 float3 atlasBlockMin =
                     floor(posSparseGrid / _BlockSize) * _BlockSize;
@@ -1160,11 +1159,11 @@ public static class ShaderTemplate {
                                                   (2.0 * blockGridSize)).xyz;
                 if (atlasBlockIndex.x <= 254.0) {
                 float3 posAtlas = clamp(posSparseGrid - atlasBlockMin, 0.0, _BlockSize);
-            
+
                 posAtlas += atlasBlockIndex * (_BlockSize + 1.0);
                 posAtlas += 0.5;
                 float3 atlasUvw = posAtlas / _AtlasSize;
-            
+
                 if (_DisplayMode == DISPLAY_COARSE_GRID) {
                   // Half-pixel apron
                   accumulatedColor = atlasBlockIndex * (_BlockSize + 1.0) / _AtlasSize;
@@ -1174,13 +1173,13 @@ public static class ShaderTemplate {
                   continue;
                 }
             #endif
-            
+
                 // Value ranges used for quantization
                 float quantizeMinFeatures = -7.0;
                 float quantizeMaxFeatures = 7.0;
                 float quantizeMinDensity = -14.0;
                 float quantizeMaxDensity = 14.0;
-            
+
                 // First fetch all densities
             #ifdef USE_SPARSE_GRID
                 float density = tex3D(_SparseGridDensity, atlasUvw).x;
@@ -1193,28 +1192,28 @@ public static class ShaderTemplate {
                 planeUv[0] = float3(posTriplaneGrid.yz / _PlaneSize, 0.0);
                 planeUv[1] = float3(posTriplaneGrid.xz / _PlaneSize, 1.0);
                 planeUv[2] = float3(posTriplaneGrid.xy / _PlaneSize, 2.0);
-            
+
                 float densityTemp;
                 densityTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneDensity, planeUv[0]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
-            
+
                 densityTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneDensity, planeUv[1]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
-            
+
                 densityTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneDensity, planeUv[2]).x;
                 densityTemp = denormalize(densityTemp, quantizeMinDensity,
                                            quantizeMaxDensity);
                 density += densityTemp;
             #endif
-            
+
                 // Activate density and convert density to alpha.
                 density = densityActivation(density);
                 float alpha = densityToAlpha(density, stepSizeWorld);
-            
+
                 // Only fetch RGBFFFF (7 bytes) if alpha is non-negligible to save bandwidth
                 if (alpha > 0.5 / 255.0) {
             #ifdef USE_SPARSE_GRID
@@ -1229,20 +1228,20 @@ public static class ShaderTemplate {
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
-            
+
                   rgbTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneRgb, planeUv[1]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
-            
+
                   rgbTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneRgb, planeUv[2]).rgb;
                   rgbTemp = denormalize(rgbTemp.rgb, quantizeMinFeatures,
                                           quantizeMaxFeatures);
                   rgb += rgbTemp;
             #endif
-            
+
                   rgb = sigmoid(rgb); // Apply activation function
-            
+
                   if (_DisplayMode != DISPLAY_DIFFUSE) {
                     float4 features = float4(0.0, 0.0, 0.0, 0.0);
             #ifdef USE_SPARSE_GRID
@@ -1256,18 +1255,18 @@ public static class ShaderTemplate {
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
-            
+
                     featuresTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneFeatures, planeUv[1]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
-            
+
                     featuresTemp = UNITY_SAMPLE_TEX2DARRAY(_PlaneFeatures, planeUv[2]);
                     features +=
                         denormalize(featuresTemp,
                                     quantizeMinFeatures, quantizeMaxFeatures);
             #endif
-            
+
                     features = sigmoid(features);
                     accumulatedFeatures += visibility * alpha * features;
                   }
@@ -1279,16 +1278,16 @@ public static class ShaderTemplate {
             #endif
                 tContracted += stepSizeContracted;
               }
-            
+
               if (_DisplayMode == DISPLAY_VIEW_DEPENDENT) {
                 accumulatedColor = float3(0.0, 0.0, 0.0) * visibility;
               } else if (_DisplayMode == DISPLAY_FEATURES) {
                 accumulatedColor = accumulatedFeatures.rgb;
               }
-            
+
               // Composite on white background
               accumulatedColor = float3(1.0, 1.0, 1.0) * visibility + accumulatedColor;
-            
+
               // Run view-dependency network
               if ((_DisplayMode == DISPLAY_NORMAL ||
                    _DisplayMode == DISPLAY_VIEW_DEPENDENT)) {
@@ -1301,10 +1300,8 @@ public static class ShaderTemplate {
     private const string VERTEX = @"v2f vert (appdata v) {
                 v2f o;
                 o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = v.uv;
 
-                float4 screenPos = ComputeScreenPos(o.vertex);
-                o.origin = screenPos.xyz / screenPos.w;
+                o.origin = _WorldSpaceCameraPos;
                 o.direction = -WorldSpaceViewDir(v.vertex);
 
                 return o;

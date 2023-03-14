@@ -22,43 +22,43 @@ public class MERFImporter {
     private static readonly string DownloadAllMessage = "You are about to download all the demo scenes from the MERF paper!\nDownloading/Processing might take a few minutes and quite a bit of RAM & disk space.\n\nClick 'OK', if you wish to continue.";
 
     [MenuItem("MERF/Asset Downloads/Download All", false, -20)]
-    public static void DownloadAllAssets() {
+    public static async void DownloadAllAssets() {
         if (!EditorUtility.DisplayDialog(DownloadAllTitle, DownloadAllMessage, "OK")) {
             return;
         }
 
         foreach (var scene in (MERFScene[])Enum.GetValues(typeof(MERFScene))) {
-            ImportAssetsAsync(scene);
+            await ImportAssetsAsync(scene);
         }
     }
 
     [MenuItem("MERF/Asset Downloads/Gardenvase", false, 0)]
-    public static void DownloadGardenvaseAssets() {
-        ImportAssetsAsync(MERFScene.Gardenvase);
+    public static async void DownloadGardenvaseAssets() {
+        await ImportAssetsAsync(MERFScene.Gardenvase);
     }
     [MenuItem("MERF/Asset Downloads/Bicycle", false, 0)]
-    public static void DownloadBicycleAssets() {
-        ImportAssetsAsync(MERFScene.Bicycle);
+    public static async void DownloadBicycleAssets() {
+        await ImportAssetsAsync(MERFScene.Bicycle);
     }
     [MenuItem("MERF/Asset Downloads/Kitchen Lego", false, 0)]
-    public static void DownloadKitchenLegoAssets() {
-        ImportAssetsAsync(MERFScene.KitchenLego);
+    public static async void DownloadKitchenLegoAssets() {
+        await ImportAssetsAsync(MERFScene.KitchenLego);
     }
     [MenuItem("MERF/Asset Downloads/Stump", false, 0)]
-    public static void DownloadStumpAssets() {
-        ImportAssetsAsync(MERFScene.Stump);
+    public static async void DownloadStumpAssets() {
+        await ImportAssetsAsync(MERFScene.Stump);
     }
     [MenuItem("MERF/Asset Downloads/Bonsai", false, 0)]
-    public static void DownloadOfficeBonsaiAssets() {
-        ImportAssetsAsync(MERFScene.OfficeBonsai);
+    public static async void DownloadOfficeBonsaiAssets() {
+        await ImportAssetsAsync(MERFScene.OfficeBonsai);
     }
     [MenuItem("MERF/Asset Downloads/Full Living Room", false, 0)]
-    public static void DownloadFullLivingRoomAssets() {
-        ImportAssetsAsync(MERFScene.FullLivingRoom);
+    public static async void DownloadFullLivingRoomAssets() {
+        await ImportAssetsAsync(MERFScene.FullLivingRoom);
     }
     [MenuItem("MERF/Asset Downloads/Kitchen Counter", false, 0)]
-    public static void DownloadKitchenCounterAssets() {
-        ImportAssetsAsync(MERFScene.KitchenCounter);
+    public static async void DownloadKitchenCounterAssets() {
+        await ImportAssetsAsync(MERFScene.KitchenCounter);
     }
 
     private const string BASE_URL = "https://merf42.github.io/viewer/scenes/";
@@ -181,7 +181,6 @@ public class MERFImporter {
     private static int[] occupancyGridBlockSizes = new int[] { 8, 16, 32, 64, 128 };
 
     private static ImportContext _context;
-    private static object sweightsTexTwo;
 
     private static async Task<MERFSources> DownloadSceneUrlsAsync(MERFScene scene) {
         string path = GetSceneUrlsCachePath(scene);
@@ -410,7 +409,7 @@ public class MERFImporter {
 
         // we need to separate/extract RGB values manually, because Unity doesn't allow loading PNGs as RGB24 -.-
         // rawatlasIndexData is in ARGB format
-        NativeArray<byte> atlasVolumeData = new NativeArray<byte>(3 * width * height * depth, Allocator.Temp);
+        NativeArray<byte> atlasVolumeData = atlasIndex3DVolume.GetPixelData<byte>(0);
         for (int i = 0, j = 0; i < rawAtlasIndexData.Length; i += 4, j += 3) {
             atlasVolumeData[j    ] = rawAtlasIndexData[i + 1];
             atlasVolumeData[j + 1] = rawAtlasIndexData[i + 2];
@@ -418,8 +417,10 @@ public class MERFImporter {
         }
 
         atlasIndex3DVolume.SetPixelData(atlasVolumeData, 0);
-        atlasIndex3DVolume.Apply();
-        atlasVolumeData.Dispose();
+
+        // flip the y axis for each depth slice
+        FlipY<Color24>(atlasIndex3DVolume);
+        atlasIndex3DVolume.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
         CreateAsset(atlasIndex3DVolume, atlasAssetPath);
         _context.AtlasIndexTexture = atlasIndex3DVolume;
@@ -437,11 +438,11 @@ public class MERFImporter {
         Texture2DArray planeDensityTexture   = CreateTextureArray(planeWidth, planeHeight, TextureFormat.R8);
         Texture2DArray planeFeaturesTexture  = CreateTextureArray(planeWidth, planeHeight, TextureFormat.RGBA32);
 
-        NativeArray<byte> planeRgbStack      = new NativeArray<byte>(planeWidth * planeHeight * 3, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-        NativeArray<byte> planeDensityStack  = new NativeArray<byte>(planeWidth * planeHeight    , Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-        NativeArray<byte> planeFeaturesStack = new NativeArray<byte>(planeWidth * planeHeight * 4, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-
         for (int plane_idx = 0; plane_idx < 3; plane_idx++) {
+            NativeArray<byte> planeRgbSlice = planeRgbTexture.GetPixelData<byte>(0, plane_idx);
+            NativeArray<byte> planeDensitySlice = planeDensityTexture.GetPixelData<byte>(0, plane_idx);
+            NativeArray<byte> planeFeaturesSlice = planeFeaturesTexture.GetPixelData<byte>(0, plane_idx);
+
             Texture2D planeRgbAndDensity = planeImages[2 * plane_idx];
             Texture2D planeFeatures      = planeImages[2 * plane_idx + 1];
             // in ARGB format
@@ -449,27 +450,27 @@ public class MERFImporter {
             NativeArray<byte> features = planeFeatures.GetRawTextureData<byte>();
 
             for (int j = 0; j < planeWidth * planeHeight; j++) {
-                planeRgbStack[j * 3 + 0] = rgbAndDensity[j * 4 + 1];
-                planeRgbStack[j * 3 + 1] = rgbAndDensity[j * 4 + 2];
-                planeRgbStack[j * 3 + 2] = rgbAndDensity[j * 4 + 3];
-                planeDensityStack[j] = rgbAndDensity[j * 4];
-                planeFeaturesStack[j * 4    ] = features[j * 4 + 1];
-                planeFeaturesStack[j * 4 + 1] = features[j * 4 + 2];
-                planeFeaturesStack[j * 4 + 2] = features[j * 4 + 3];
-                planeFeaturesStack[j * 4 + 3] = features[j * 4    ];
+                planeRgbSlice[j * 3 + 0] = rgbAndDensity[j * 4 + 1];
+                planeRgbSlice[j * 3 + 1] = rgbAndDensity[j * 4 + 2];
+                planeRgbSlice[j * 3 + 2] = rgbAndDensity[j * 4 + 3];
+                planeDensitySlice[j] = rgbAndDensity[j * 4];
+                planeFeaturesSlice[j * 4    ] = features[j * 4 + 1];
+                planeFeaturesSlice[j * 4 + 1] = features[j * 4 + 2];
+                planeFeaturesSlice[j * 4 + 2] = features[j * 4 + 3];
+                planeFeaturesSlice[j * 4 + 3] = features[j * 4    ];
             }
-
-            planeRgbTexture.SetPixelData(planeRgbStack, 0, plane_idx);
-            planeDensityTexture.SetPixelData(planeDensityStack, 0, plane_idx);
-            planeFeaturesTexture.SetPixelData(planeFeaturesStack, 0, plane_idx);
         }
 
-        planeRgbTexture.Apply();
-        planeDensityTexture.Apply();
-        planeFeaturesTexture.Apply();
-        planeRgbStack.Dispose();
-        planeDensityStack.Dispose();
-        planeFeaturesStack.Dispose();
+        FlipY<Color24>(planeRgbTexture);
+        FlipZ<Color24>(planeRgbTexture);
+        FlipY<byte>(planeDensityTexture);
+        FlipZ<byte>(planeDensityTexture);
+        FlipY<Color32>(planeFeaturesTexture);
+        FlipZ<Color32>(planeFeaturesTexture);
+
+        planeRgbTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+        planeDensityTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+        planeFeaturesTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
         CreateAsset(planeRgbTexture, GetPlaneRGBAssetPath(scene));
         CreateAsset(planeDensityTexture , GetPlaneDensityAssetPath(scene));
@@ -514,7 +515,7 @@ public class MERFImporter {
             occupancyVoxelSizes[occupancyGridIndex] = baseVoxelSize * occupancyGridBlockSize;
             byte[] occupancyGridImageFourChannels = occupancyGrid[occupancyGridIndex];
             occupancyGridTexture.SetPixelData(occupancyGridImageFourChannels, 0);
-            occupancyGridTexture.Apply();
+            occupancyGridTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
             CreateAsset(occupancyGridTexture, occupancyAssetPath);
         }
 
@@ -528,33 +529,44 @@ public class MERFImporter {
         int volumeWidth = sceneParams.AtlasWidth;
         int volumeHeight = sceneParams.AtlasHeight;
         int volumeDepth = sceneParams.AtlasDepth;
-        int sliceDepth = sceneParams.SliceDepth;
-        int numPixels = volumeWidth * volumeHeight * sliceDepth; // pixels per atlassed texture
 
-        Texture3D rgbVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.RGB24, FilterMode.Bilinear);
-        Texture3D densityVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.R8, FilterMode.Bilinear);
-        NativeArray<byte> rgbPixels = rgbVolumeTexture.GetPixelData<byte>(0);
+        int sliceDepth = sceneParams.SliceDepth;                    // slices packed into one atlased texture
+        int numSlices  = sceneParams.NumSlices;                     // number of slice atlases
+        int ppAtlas    = volumeWidth * volumeHeight * sliceDepth;   // pixels per atlased texture
+        int ppSlice    = volumeWidth * volumeHeight;                // pixels per volume slice
+
+        Texture3D rgbVolumeTexture      = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.RGB24, FilterMode.Bilinear);
+        Texture3D densityVolumeTexture  = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.R8, FilterMode.Bilinear);
+        NativeArray<byte> rgbPixels     = rgbVolumeTexture    .GetPixelData<byte>(0);
         NativeArray<byte> densityPixels = densityVolumeTexture.GetPixelData<byte>(0);
 
-        for (int i = 0; i < rgbImages.Length; i++) {
+        for (int i = 0; i < numSlices; i++) {
             // rgbaImage is in ARGB format!
             NativeArray<byte> rgbaImage = rgbImages[i].GetRawTextureData<byte>();
-            int baseIndexRGB = i * numPixels * 3;
-            int baseIndexAlpha = i * numPixels;
 
             // The png's RGB channels hold RGB and the png's alpha channel holds
             // density. We split apart RGB and density and upload to two distinct
             // textures, so we can separately query these quantities.
-            for (int j = 0; j < numPixels; j++) {
-                rgbPixels[baseIndexRGB + (j * 3) + 0] = rgbaImage[j * 4 + 1];
-                rgbPixels[baseIndexRGB + (j * 3) + 1] = rgbaImage[j * 4 + 2];
-                rgbPixels[baseIndexRGB + (j * 3) + 2] = rgbaImage[j * 4 + 3];
-                densityPixels[baseIndexAlpha + j] = rgbaImage[j * 4];
+            for (int s_r = sliceDepth - 1, s = 0; s_r >= 0; s_r--, s++) {
+
+                int baseIndexRGB = (i * ppAtlas + s * ppSlice) * 3;
+                int baseIndexAlpha = (i * ppAtlas + s * ppSlice);
+                for (int j = 0; j < ppSlice; j++) {
+                    rgbPixels[baseIndexRGB + (j * 3)] = rgbaImage[((s_r * ppSlice + j) * 4) + 1];
+                    rgbPixels[baseIndexRGB + (j * 3) + 1] = rgbaImage[((s_r * ppSlice + j) * 4) + 2];
+                    rgbPixels[baseIndexRGB + (j * 3) + 2] = rgbaImage[((s_r * ppSlice + j) * 4) + 3];
+                    densityPixels[baseIndexAlpha + j] = rgbaImage[((s_r * ppSlice + j) * 4)];
+                }
             }
         }
 
-        rgbVolumeTexture.Apply();
-        densityVolumeTexture.Apply();
+        FlipY<Color24>(rgbVolumeTexture);
+        FlipZ<Color24>(rgbVolumeTexture, sceneParams.AtlasBlocksZ);
+        FlipY<byte>(densityVolumeTexture);
+        FlipZ<byte>(densityVolumeTexture, sceneParams.AtlasBlocksZ);
+
+        rgbVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+        densityVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
         string rgbVolumeAssetPath = GetRGBVolumeTextureAssetPath(scene);
         string densityVolumeAssetPath = GetDensityVolumeTextureAssetPath(scene);
@@ -570,22 +582,30 @@ public class MERFImporter {
         int volumeWidth = sceneParams.AtlasWidth;
         int volumeHeight = sceneParams.AtlasHeight;
         int volumeDepth = sceneParams.AtlasDepth;
-        int sliceDepth = sceneParams.SliceDepth;
-        int numSlices = sceneParams.NumSlices;
-        int numPixels = volumeWidth * volumeHeight * sliceDepth;    // pixels per atlassed feature texture
+
+        int sliceDepth = sceneParams.SliceDepth;                // slices packed into one atlased texture
+        int numSlices = sceneParams.NumSlices;                  // number of slice atlases
+        int ppAtlas = volumeWidth * volumeHeight * sliceDepth;  // pixels per atlased feature texture
+        int ppSlice = volumeWidth * volumeHeight;               // pixels per volume slice
 
         Texture3D featureVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.ARGB32, FilterMode.Bilinear);
         NativeArray<Color32> featurePixels = featureVolumeTexture.GetPixelData<Color32>(0);
 
         for (int i = 0; i < numSlices; i++) {
-            NativeArray<Color32> _featureSlice = featureImages[i].GetRawTextureData<Color32>();
-            NativeSlice<Color32> dst = new NativeSlice<Color32>(featurePixels, i * numPixels, numPixels);
-            NativeSlice<Color32> src = new NativeSlice<Color32>(_featureSlice);
+            NativeArray<Color32> _featureImageFourSlices = featureImages[i].GetRawTextureData<Color32>();
 
-            dst.CopyFrom(src);
+            for (int s_r = sliceDepth - 1, s = 0; s_r >= 0; s_r--, s++) {
+                int targetIndex = (i * ppAtlas) + (s * ppSlice);
+                NativeSlice<Color32> dst = new NativeSlice<Color32>(featurePixels, targetIndex, ppSlice);
+                NativeSlice<Color32> src = new NativeSlice<Color32>(_featureImageFourSlices, s_r * ppSlice, ppSlice);
+
+                dst.CopyFrom(src);
+            }
         }
+        FlipY<Color32>(featureVolumeTexture);
+        FlipZ<Color32>(featureVolumeTexture, sceneParams.AtlasBlocksZ);
 
-        featureVolumeTexture.Apply();
+        featureVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
         string featureVolumeAssetPath = GetFeatureVolumeTextureAssetPath(scene);
         CreateAsset(featureVolumeTexture, featureVolumeAssetPath);
@@ -598,6 +618,146 @@ public class MERFImporter {
             filterMode = filterMode,
             wrapMode = TextureWrapMode.Clamp,
         };
+    }
+
+    /// <summary>
+    /// Vertically flips each depth slice in the given 3D texture.
+    /// </summary>
+    private static void FlipY<T>(Texture3D texture) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        int depth = texture.depth;
+        NativeArray<T> data = texture.GetPixelData<T>(0);
+        for (int z = 0; z < depth; z++) {
+            for (int y = 0; y < height / 2; y++) {
+                for (int x = 0; x < width; x++) {
+                    int flippedY = height - y - 1;
+                    int source = z * (width * height) + (flippedY * width) + x;
+                    int target = z * (width * height) + (y * width) + x;
+                    (data[target], data[source]) = (data[source], data[target]);
+                }
+            }
+        }
+    }
+
+    private static void FlipY<T>(Texture2DArray texture) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        int depth = texture.depth;
+        for (int z = 0; z < depth; z++) {
+            NativeArray<T> data = texture.GetPixelData<T>(0, z);
+            for (int y = 0; y < height / 2; y++) {
+                for (int x = 0; x < width; x++) {
+                    int flippedY = height - y - 1;
+                    int source = (flippedY * width) + x;
+                    int target = (y * width) + x;
+                    (data[target], data[source]) = (data[source], data[target]);
+                }
+            }
+        }
+    }
+
+    private static void FlipY<T>(Texture2D texture) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        NativeArray<T> data = texture.GetPixelData<T>(0);
+        for (int y = 0; y < height / 2; y++) {
+            for (int x = 0; x < width; x++) {
+                int flippedY = height - y - 1;
+                int source = (flippedY * width) + x;
+                int target = (y * width) + x;
+                (data[target], data[source]) = (data[source], data[target]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Flips z - Reverses the order of the depth slices of the given 3D texture.
+    /// Atlases might be divided in macro blocks that are treated individually here.
+    /// I.e. depth slices are only reversed within a block.
+    /// </summary>
+    private static void FlipZ<T>(Texture3D texture, int atlasBlocksZ) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        int depth = texture.depth;
+        int stride = depth / atlasBlocksZ;
+        int blockSize = width * height * stride;
+        int sliceSize = width * height;
+
+        NativeArray<T> data = texture.GetPixelData<T>(0);
+        NativeArray<T> tmp = new NativeArray<T>(sliceSize, Allocator.Temp);
+
+        for (int z = 0; z < atlasBlocksZ; z++) {
+            for (int s = 0; s < stride / 2; s++) {
+                int atlasBlock = z * blockSize;
+                int slice1Index = atlasBlock + s * sliceSize;
+                int slice2Index = atlasBlock + ((stride - s - 1) * sliceSize);
+
+                NativeSlice<T> slice1 = new NativeSlice<T>(data, slice1Index, sliceSize);
+                NativeSlice<T> slice2 = new NativeSlice<T>(data, slice2Index, sliceSize);
+
+                slice1.CopyTo(tmp);
+                slice1.CopyFrom(slice2);
+                slice2.CopyFrom(tmp);
+            }
+        }
+
+        tmp.Dispose();
+    }
+
+    /// <summary>
+    /// Reverse the order of the depth slices of the 3D texture
+    /// </summary>
+    private static void FlipZ<T>(Texture3D texture) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        int depth = texture.depth;
+        int sliceSize = width * height;
+
+        NativeArray<T> data = texture.GetPixelData<T>(0);
+        NativeArray<T> tmp = new NativeArray<T>(sliceSize, Allocator.Temp);
+
+        for (int z = 0; z < depth / 2; z++) {
+            int slice1Index = z * sliceSize;
+            int slice2Index = (depth - z - 1) * sliceSize;
+
+            NativeSlice<T> slice1 = new NativeSlice<T>(data, slice1Index, sliceSize);
+            NativeSlice<T> slice2 = new NativeSlice<T>(data, slice2Index, sliceSize);
+
+            slice1.CopyTo(tmp);
+            slice1.CopyFrom(slice2);
+            slice2.CopyFrom(tmp);
+        }
+
+        tmp.Dispose();
+    }
+
+    private static void FlipZ<T>(Texture2DArray texture) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        int depth = texture.depth;
+
+        NativeArray<T> tmp = new NativeArray<T>(width * height, Allocator.Temp);
+
+        for (int z = 0; z < depth / 2; z++) {
+            int slice1Index = z;
+            int slice2Index = (depth - z - 1);
+
+            NativeArray<T> slice1 = texture.GetPixelData<T>(0, slice1Index);
+            NativeArray<T> slice2 = texture.GetPixelData<T>(0, slice2Index);
+
+            slice1.CopyTo(tmp);
+            slice1.CopyFrom(slice2);
+            slice2.CopyFrom(tmp);
+        }
+
+        tmp.Dispose();
+    }
+
+    private struct Color24 {
+        public byte r;
+        public byte g;
+        public byte b;
     }
 
     /// <summary>
@@ -640,6 +800,7 @@ public class MERFImporter {
         Texture2D weightsTexZero = CreateNetworkWeightTexture(sceneParams._0Weights);
         Texture2D weightsTexOne = CreateNetworkWeightTexture(sceneParams._1Weights);
         Texture2D weightsTexTwo = CreateNetworkWeightTexture(sceneParams._2Weights);
+
         CreateAsset(weightsTexZero, GetWeightsAssetPath(scene, 0));
         CreateAsset(weightsTexOne, GetWeightsAssetPath(scene, 1));
         CreateAsset(weightsTexTwo, GetWeightsAssetPath(scene, 2));
@@ -732,7 +893,7 @@ public class MERFImporter {
         _context.Material = material;
     }
 
-    private static async void ImportAssetsAsync(MERFScene scene) {
+    private static async Task ImportAssetsAsync(MERFScene scene) {
         _context = new ImportContext();
         string objName = scene.String();
 
