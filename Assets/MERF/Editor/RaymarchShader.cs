@@ -6,42 +6,42 @@ public static class RaymarchShader {
     /// </summary>
     public const string Template = @"Shader ""MERF/RayMarchShader_OBJECT_NAME"" {
     Properties {
-        _OccupancyGrid_L4      (""OccupancyGrid_L4""     , 3D     ) = """" {}
-        _OccupancyGrid_L3      (""OccupancyGrid_L3""     , 3D     ) = """" {}
-        _OccupancyGrid_L2      (""OccupancyGrid_L2""     , 3D     ) = """" {}
-        _OccupancyGrid_L1      (""OccupancyGrid_L1""     , 3D     ) = """" {}
-        _OccupancyGrid_L0      (""OccupancyGrid_L0""     , 3D     ) = """" {}
-        _VoxelSizeOccupancy_L4 (""VoxelSizeOccupancy_L4"", Float  ) = 0.0
-        _VoxelSizeOccupancy_L3 (""VoxelSizeOccupancy_L3"", Float  ) = 0.0
-        _VoxelSizeOccupancy_L2 (""VoxelSizeOccupancy_L2"", Float  ) = 0.0
-        _VoxelSizeOccupancy_L1 (""VoxelSizeOccupancy_L1"", Float  ) = 0.0
-        _VoxelSizeOccupancy_L0 (""VoxelSizeOccupancy_L0"", Float  ) = 0.0
-        _GridSizeOccupancy_L4  (""_GridSizeOccupancy_L4"", Vector ) = (0, 0, 0, 0)
-        _GridSizeOccupancy_L3  (""_GridSizeOccupancy_L3"", Vector ) = (0, 0, 0, 0)
-        _GridSizeOccupancy_L2  (""_GridSizeOccupancy_L2"", Vector ) = (0, 0, 0, 0)
-        _GridSizeOccupancy_L1  (""_GridSizeOccupancy_L1"", Vector ) = (0, 0, 0, 0)
-        _GridSizeOccupancy_L0  (""_GridSizeOccupancy_L0"", Vector ) = (0, 0, 0, 0)
-        _DisplayMode           (""_DisplayMode""         , Integer) = 0
-        _WeightsZero           (""Weights Zero""         , 2D     ) = ""white"" {}
-        _WeightsOne            (""Weights One""          , 2D     ) = ""white"" {}
-        _WeightsTwo            (""Weights Two""          , 2D     ) = ""white"" {}
-	    _MinPosition           (""Min Position""         , Vector ) = (0, 0, 0, 0)
-        _StepMult              (""StepMult""             , Integer) = 1
+        _OccupancyGrid_L4      (""OccupancyGrid L4 (3D)""  , 3D     ) = """" {}
+        _OccupancyGrid_L3      (""OccupancyGrid L3 (3D)""  , 3D     ) = """" {}
+        _OccupancyGrid_L2      (""OccupancyGrid L2 (3D)""  , 3D     ) = """" {}
+        _OccupancyGrid_L1      (""OccupancyGrid L1 (3D)""  , 3D     ) = """" {}
+        _OccupancyGrid_L0      (""OccupancyGrid L0 (3D)""  , 3D     ) = """" {}
+        _VoxelSizeOccupancy_L4 (""VoxelSizeOccupancy L4""  , Float  ) = 0.0
+        _VoxelSizeOccupancy_L3 (""VoxelSizeOccupancy L3""  , Float  ) = 0.0
+        _VoxelSizeOccupancy_L2 (""VoxelSizeOccupancy L2""  , Float  ) = 0.0
+        _VoxelSizeOccupancy_L1 (""VoxelSizeOccupancy L1""  , Float  ) = 0.0
+        _VoxelSizeOccupancy_L0 (""VoxelSizeOccupancy L0""  , Float  ) = 0.0
+        _GridSizeOccupancy_L4  (""GridSizeOccupancy L4""   , Vector ) = (0, 0, 0, 0)
+        _GridSizeOccupancy_L3  (""GridSizeOccupancy L3""   , Vector ) = (0, 0, 0, 0)
+        _GridSizeOccupancy_L2  (""GridSizeOccupancy L2""   , Vector ) = (0, 0, 0, 0)
+        _GridSizeOccupancy_L1  (""GridSizeOccupancy L1""   , Vector ) = (0, 0, 0, 0)
+        _GridSizeOccupancy_L0  (""GridSizeOccupancy L0""   , Vector ) = (0, 0, 0, 0)
+        _DisplayMode           (""Display Mode""           , Integer) = 0
+        _WeightsZero           (""Weights Zero""           , 2D     ) = ""white"" {}
+        _WeightsOne            (""Weights One""            , 2D     ) = ""white"" {}
+        _WeightsTwo            (""Weights Two""            , 2D     ) = ""white"" {}
+	    _MinPosition           (""Min Position""           , Vector ) = (0, 0, 0, 0)
+        _StepMult              (""Step Multiplier""        , Integer) = 1
+                                                           
+        _PlaneRgb              (""PlaneRgb""               , 2DArray) = """" {}
+        _PlaneDensity          (""PlaneDensity""           , 2DArray) = """" {}
+        _PlaneFeatures         (""PlaneFeatures""          , 2DArray) = """" {}
+	    _PlaneSize             (""PlaneSize""              , Vector ) = (0, 0, 0, 0)
+        _VoxelSizeTriplane     (""VoxelSizeTriplane""      , Float  ) = 0.0
 
-        _PlaneRgb              (""PlaneRgb""             , 2DArray) = """" {}
-        _PlaneDensity          (""PlaneDensity""         , 2DArray) = """" {}
-        _PlaneFeatures         (""PlaneFeatures""        , 2DArray) = """" {}
-	    _PlaneSize             (""PlaneSize""            , Vector ) = (0, 0, 0, 0)
-        _VoxelSizeTriplane     (""VoxelSizeTriplane""    , Float  ) = 0.0
-
-        _SparseGridDensity     (""SparseGridDensity""    , 3D     ) = ""white"" {}
-        _SparseGridRgb         (""SparseGridRgb""        , 3D     ) = ""white"" {}
-        _SparseGridFeatures    (""SparseGridFeatures""   , 3D     ) = ""white"" {}
-        _SparseGridIndex       (""SparseGridIndex""      , 3D     ) = ""white"" {}
-	    _BlockSize             (""Block Size""           , Float  ) = 0.0
-	    _VoxelSize             (""Voxel Size""           , Float  ) = 0.0
-        _GridSize              (""Grid Size""            , Vector ) = (0, 0, 0, 0)
-        _AtlasSize             (""Atlas Size""           , Vector ) = (0, 0, 0, 0)
+        _SparseGridDensity     (""SparseGridDensity (3D)"" , 3D     ) = ""white"" {}
+        _SparseGridRgb         (""SparseGridRgb (3D)""     , 3D     ) = ""white"" {}
+        _SparseGridFeatures    (""SparseGridFeatures (3D)"", 3D     ) = ""white"" {}
+        _SparseGridIndex       (""SparseGridIndex (3D)""   , 3D     ) = ""white"" {}
+	    _BlockSize             (""Block Size""             , Float  ) = 0.0
+	    _VoxelSize             (""Voxel Size""             , Float  ) = 0.0
+        _GridSize              (""Grid Size""              , Vector ) = (0, 0, 0, 0)
+        _AtlasSize             (""Atlas Size""             , Vector ) = (0, 0, 0, 0)
     }
     SubShader {
         Cull Front
@@ -64,17 +64,17 @@ public static class RaymarchShader {
             int _DisplayMode;
             float4 _MinPosition;
 
-            sampler3D OccupancyGrid_L0;
-            sampler3D OccupancyGrid_L1;
-            sampler3D OccupancyGrid_L2;
-            sampler3D OccupancyGrid_L3;
-            sampler3D OccupancyGrid_L4;
+            sampler3D _OccupancyGrid_L0;
+            sampler3D _OccupancyGrid_L1;
+            sampler3D _OccupancyGrid_L2;
+            sampler3D _OccupancyGrid_L3;
+            sampler3D _OccupancyGrid_L4;
 
-            float VoxelSizeOccupancy_L0;
-            float VoxelSizeOccupancy_L1;
-            float VoxelSizeOccupancy_L2;
-            float VoxelSizeOccupancy_L3;
-            float VoxelSizeOccupancy_L4;
+            float _VoxelSizeOccupancy_L0;
+            float _VoxelSizeOccupancy_L1;
+            float _VoxelSizeOccupancy_L2;
+            float _VoxelSizeOccupancy_L3;
+            float _VoxelSizeOccupancy_L4;
 
             float4 _GridSizeOccupancy_L0;
             float4 _GridSizeOccupancy_L1;
@@ -93,10 +93,10 @@ public static class RaymarchShader {
             #ifdef USE_SPARSE_GRID
             float3 _AtlasSize;
             float _BlockSize;
-            sampler3D _SparseGridDensity;
-            sampler3D _SparseGridRgb;
-            sampler3D _SparseGridFeatures;
-            sampler3D _SparseGridIndex;
+            UNITY_DECLARE_TEX3D(_SparseGridDensity );
+            UNITY_DECLARE_TEX3D(_SparseGridRgb     );
+            UNITY_DECLARE_TEX3D(_SparseGridFeatures);
+            UNITY_DECLARE_TEX3D(_SparseGridIndex   );
             #endif
 
             #ifdef USE_TRIPLANE
@@ -110,14 +110,12 @@ public static class RaymarchShader {
 
             struct appdata {
                 float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
             };
 
             struct v2f {
-                float2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
-                float3 origin : TEXCOORD1;
-                float3 direction : TEXCOORD2;
+                float3 origin : TEXCOORD0;
+                float3 direction : TEXCOORD1;
             };
 
             VIEWDEPENDENCESHADERFUNCTIONS
@@ -973,32 +971,32 @@ public static class RaymarchShader {
             OccupancyQueryResults queryOccupancyGrid(
                 float3 z, float3 _MinPosition, float3 oContracted,
                 float3 invDContracted, sampler3D occupancyGrid,
-                float _VoxelSizeOccupancy, float3 _GridSizeOccupancy) {
+                float voxelSizeOccupancy, float3 gridSizeOccupancy) {
               OccupancyQueryResults r;
               float3 posOccupancy;
               float3 blockMin;
               float3 blockMax;
               float occupancy;
-              posOccupancy = (z - _MinPosition) / _VoxelSizeOccupancy;
+              posOccupancy = (z - _MinPosition) / voxelSizeOccupancy;
               blockMin = floor(posOccupancy);
               blockMax = floor(posOccupancy) + 1.0;
               occupancy = tex3D(
                 occupancyGrid,
-                (blockMin + blockMax) * 0.5 / _GridSizeOccupancy
+                (blockMin + blockMax) * 0.5 / gridSizeOccupancy
               ).r;
-              blockMin = blockMin * _VoxelSizeOccupancy + _MinPosition;
-              blockMax = blockMax * _VoxelSizeOccupancy + _MinPosition;
+              blockMin = blockMin * voxelSizeOccupancy + _MinPosition;
+              blockMax = blockMax * voxelSizeOccupancy + _MinPosition;
               r.inEmptySpace = occupancy == 0.0;
               r.tBlockMax = rayAabbIntersection(blockMin, blockMax, oContracted, invDContracted).y;
               return r;
             }
 
 
-            #define QUERY_OCCUPANCY_GRID(tBlockMax_L, occupancyGrid, _VoxelSizeOccupancy, _GridSizeOccupancy)\
+            #define QUERY_OCCUPANCY_GRID(tBlockMax_L, occupancyGrid, voxelSizeOccupancy, gridSizeOccupancy)\
             if (tContracted > tBlockMax_L) {\
               occupancyQueryResults =\
                 queryOccupancyGrid(z, _MinPosition, r.oContracted, invDContracted,\
-                                    occupancyGrid, _VoxelSizeOccupancy, _GridSizeOccupancy);\
+                                    occupancyGrid, voxelSizeOccupancy, gridSizeOccupancy);\
               tBlockMax_L = occupancyQueryResults.tBlockMax;\
               if (occupancyQueryResults.inEmptySpace) {\
                 tContracted = max(tContracted, tBlockMax_L) + 0.5 * stepSizeContracted;\
@@ -1054,16 +1052,11 @@ public static class RaymarchShader {
               int step = 0;
 
             #ifdef USE_TRIPLANE
-              #define GRID_SIZE _PlaneSize
+              float2 gridSize = _PlaneSize;
               #define VOXEL_SIZE _VoxelSizeTriplane
             #else
-              #define GRID_SIZE _GridSize
+              float3 gridSize = _GridSize;
               #define VOXEL_SIZE _VoxelSize
-            #endif
-            #ifdef USE_TRIPLANE
-              float2 gridSize = GRID_SIZE;
-            #else
-              float3 gridSize = GRID_SIZE;
             #endif
               int maxStep = _StepMult * int(ceil(length(gridSize)));
               float origStepSizeContracted = VOXEL_SIZE / float(_StepMult);
@@ -1109,16 +1102,11 @@ public static class RaymarchShader {
                 // Hierarchical empty space skipping
                 float3 invDContracted = 1.0 / r.dContracted;
                 OccupancyQueryResults occupancyQueryResults;
-                QUERY_OCCUPANCY_GRID(tBlockMax_L0, OccupancyGrid_L0, VoxelSizeOccupancy_L0,
-                                     _GridSizeOccupancy_L0)
-                QUERY_OCCUPANCY_GRID(tBlockMax_L1, OccupancyGrid_L1, VoxelSizeOccupancy_L1,
-                                     _GridSizeOccupancy_L1)
-                QUERY_OCCUPANCY_GRID(tBlockMax_L2, OccupancyGrid_L2, VoxelSizeOccupancy_L2,
-                                     _GridSizeOccupancy_L2)
-                QUERY_OCCUPANCY_GRID(tBlockMax_L3, OccupancyGrid_L3, VoxelSizeOccupancy_L3,
-                                     _GridSizeOccupancy_L3)
-                QUERY_OCCUPANCY_GRID(tBlockMax_L4, OccupancyGrid_L4, VoxelSizeOccupancy_L4,
-                                     _GridSizeOccupancy_L4)
+                QUERY_OCCUPANCY_GRID(tBlockMax_L0, _OccupancyGrid_L0, _VoxelSizeOccupancy_L0, _GridSizeOccupancy_L0)
+                QUERY_OCCUPANCY_GRID(tBlockMax_L1, _OccupancyGrid_L1, _VoxelSizeOccupancy_L1, _GridSizeOccupancy_L1)
+                QUERY_OCCUPANCY_GRID(tBlockMax_L2, _OccupancyGrid_L2, _VoxelSizeOccupancy_L2, _GridSizeOccupancy_L2)
+                QUERY_OCCUPANCY_GRID(tBlockMax_L3, _OccupancyGrid_L3, _VoxelSizeOccupancy_L3, _GridSizeOccupancy_L3)
+                QUERY_OCCUPANCY_GRID(tBlockMax_L4, _OccupancyGrid_L4, _VoxelSizeOccupancy_L4, _GridSizeOccupancy_L4)
 
                 // We are in occupied space
                 // compute grid positions for the sparse 3D grid and on the triplane planes
@@ -1142,7 +1130,7 @@ public static class RaymarchShader {
                     floor(posSparseGrid / _BlockSize) * _BlockSize;
                 float3 atlasBlockMax = atlasBlockMin + _BlockSize;
                 float3 atlasBlockIndex =
-                    255.0 * tex3D(_SparseGridIndex, (atlasBlockMin + atlasBlockMax) /
+                    255.0 * UNITY_SAMPLE_TEX3D(_SparseGridIndex, (atlasBlockMin + atlasBlockMax) /
                                                   (2.0 * blockGridSize)).xyz;
                 if (atlasBlockIndex.x <= 254.0) {
                 float3 posAtlas = clamp(posSparseGrid - atlasBlockMin, 0.0, _BlockSize);
@@ -1169,7 +1157,7 @@ public static class RaymarchShader {
 
                 // First fetch all densities
             #ifdef USE_SPARSE_GRID
-                float density = tex3D(_SparseGridDensity, atlasUvw).x;
+                float density = UNITY_SAMPLE_TEX3D(_SparseGridDensity, atlasUvw).x;
                 density = denormalize(density, quantizeMinDensity, quantizeMaxDensity);
             #else
                 float density = 0.0;
@@ -1204,7 +1192,7 @@ public static class RaymarchShader {
                 // Only fetch RGBFFFF (7 bytes) if alpha is non-negligible to save bandwidth
                 if (alpha > 0.5 / 255.0) {
             #ifdef USE_SPARSE_GRID
-                  float3 rgb = tex3D(_SparseGridRgb, atlasUvw).rgb;
+                  float3 rgb = UNITY_SAMPLE_TEX3D(_SparseGridRgb, atlasUvw).rgb;
                   rgb = denormalize(rgb, quantizeMinFeatures, quantizeMaxFeatures);
             #else
                   float3 rgb = float3(0.0, 0.0, 0.0);
@@ -1232,7 +1220,7 @@ public static class RaymarchShader {
                   if (_DisplayMode != DISPLAY_DIFFUSE) {
                     float4 features = float4(0.0, 0.0, 0.0, 0.0);
             #ifdef USE_SPARSE_GRID
-                    features = tex3D(_SparseGridFeatures, atlasUvw);
+                    features = UNITY_SAMPLE_TEX3D(_SparseGridFeatures, atlasUvw);
                     features = denormalize(features, quantizeMinFeatures,
                                            quantizeMaxFeatures);
             #endif
