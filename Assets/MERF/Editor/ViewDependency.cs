@@ -84,7 +84,7 @@ public static class ViewDependency {
         SceneParams network_weights = sceneParams;
 
         // Write bias values as compile-time constants.
-        string fragmentShaderSource = ShaderTemplate.ViewDependenceNetworkShaderFunctions;
+        string fragmentShaderSource = RaymarchShader.ViewDependenceNetworkShaderFunctions;
 
         for (int layerIndex = 0; layerIndex < 3; layerIndex++) {
             StringBuilder biasList = ToBiasList(network_weights.GetBias(layerIndex));
@@ -105,15 +105,16 @@ public static class ViewDependency {
 
         return fragmentShaderSource;
     }
+
     private static StringBuilder ToBiasList(double[] biases) {
         System.Globalization.CultureInfo culture = System.Globalization.CultureInfo.InvariantCulture;
         int width = biases.Length;
         StringBuilder biasList = new StringBuilder(width * 12);
-        biasList.Append("vec4(");
+        biasList.Append("float4(");
         for (int i = 0; i < width; i++) {
             double bias = biases[i];
             if (i % 4 == 0 && i != 0 && i != width - 1) {
-                biasList.Append("), vec4(");
+                biasList.Append("), float4(");
             }
             biasList.Append(bias.ToString("F7", culture));
             if (i + 1 < width && (i + 1) % 4 != 0) {

@@ -777,11 +777,10 @@ public class MERFImporter {
     /// functions and body
     /// </summary>
     private static void CreateRayMarchShader(MERFScene scene, SceneParams sceneParams) {
-        string shaderSource = ShaderTemplate.Template;
-        string viewDependenceFunctions = CreateViewDependenceFunctions(sceneParams);
-        shaderSource = new Regex("VIEWDEPENDENCESHADERFUNCTIONS").Replace(shaderSource, viewDependenceFunctions);
-        shaderSource = new Regex("RAYMARCHVERTEXSHADER").Replace(shaderSource, ShaderTemplate.RayMarchVertexShader);
-        shaderSource = new Regex("RAYMARCHFRAGMENTSHADER").Replace(shaderSource, ShaderTemplate.RayMarchFragmentShaderBody);
+        string shaderSource = RaymarchShader.Template;
+        shaderSource = new Regex("VIEWDEPENDENCESHADERFUNCTIONS").Replace(shaderSource, CreateViewDependenceFunctions(sceneParams));
+        shaderSource = new Regex("RAYMARCHVERTEXSHADER"         ).Replace(shaderSource, RaymarchShader.RayMarchVertexShader);
+        shaderSource = new Regex("RAYMARCHFRAGMENTSHADER"       ).Replace(shaderSource, RaymarchShader.RayMarchFragmentShaderBody);
 
         shaderSource = new Regex("OBJECT_NAME").Replace(shaderSource, $"{scene}");
         string shaderAssetPath = GetShaderAssetPath(scene);

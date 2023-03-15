@@ -1,5 +1,9 @@
-public static class ShaderTemplate {
+public static class RaymarchShader {
 
+    /// <summary>
+    /// The ray marching shader is built programmatically.
+    /// This string contains the template for the shader.
+    /// </summary>
     public const string Template = @"Shader ""MERF/RayMarchShader_OBJECT_NAME"" {
     Properties {
         _OccupancyGrid_L4      (""OccupancyGrid_L4""     , 3D     ) = """" {}
@@ -127,15 +131,6 @@ public static class ShaderTemplate {
     }
 }
 ";
-    /// <summary>
-    /// The ray marching shader is built programmatically.
-    /// This string contains the header for the shader.
-    /// </summary>
-    public static string RayMarchFragmentShaderHeader {
-        get {
-            return HEADER;
-        }
-    }
 
     public static string RayMarchVertexShader {
         get {
@@ -154,8 +149,6 @@ public static class ShaderTemplate {
             return VIEWDEPENDENCY;
         }
     }
-
-    private const string HEADER = @"";
 
     private const string VIEWDEPENDENCY = @"float indexToPosEnc(float3 dir, int index) {
                 float coordinate =
@@ -198,11 +191,8 @@ public static class ShaderTemplate {
             }
 
             float3 evaluateNetwork(float3 color, float4 features, float3 viewdir) {
-                float4 intermediate_one[16/4] = {
-                    float4(0.0000000, 0.0000000, 0.0000000, 0.0000000),
-                    float4(0.0000000, 0.0000000, 0.0000000, 0.0000000),
-                    float4(0.0000000, 0.0000000, 0.0000000, 0.0000000),
-                    float4(0.0000000, 0.0000000, 0.0000000, 0.0000000)
+                float4 intermediate_one[NUM_CHANNELS_ONE/4] = {
+                    BIAS_LIST_0
                 };
 
                 float4 inp;
@@ -578,34 +568,31 @@ public static class ShaderTemplate {
                 intermediate_one[3] += mul(inp, w);
 
 
-                float4 intermediate_two[16/4] = {
-                    float4(0.2806560, -0.2163800, 0.1149169, 0.1220414),
-                    float4(0.1760421, -0.2192539, 0.0500887, -0.2273668),
-                    float4(0.0488495, 0.2099760, 0.0931385, 0.1399519),
-                    float4(0.0994009, 0.2953304, 0.1486122, 0.0342005)
+                float4 intermediate_two[NUM_CHANNELS_TWO/4] = {
+                    BIAS_LIST_1
                 };
                 int j = 0;
-                for (j = 0; j < 16/4; ++j) {
+                for (j = 0; j < NUM_CHANNELS_ONE/4; ++j) {
                     inp = relu(intermediate_one[j]);
-                    for (int i = 0; i < 16; i += 4) {
+                    for (int i = 0; i < NUM_CHANNELS_TWO; i += 4) {
                     w = float4x4(
-                        _WeightsOne.Load(int3(0, j * 16 + i, 0)),
-                        _WeightsOne.Load(int3(0, j * 16 + (i+1), 0)),
-                        _WeightsOne.Load(int3(0, j * 16 + (i+2), 0)),
-                        _WeightsOne.Load(int3(0, j * 16 + (i+3), 0))
+                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + i, 0)),
+                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + (i+1), 0)),
+                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + (i+2), 0)),
+                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + (i+3), 0))
                     );
                     intermediate_two[i/4] += mul(inp, w);
                     }
                 }
 
-                float4 result = float4(-0.2284832, -0.0142633, -0.2382168, 0.0000000);
-                for (j = 0; j < 16/4; ++j) {
+                float4 result = BIAS_LIST_2;
+                for (j = 0; j < NUM_CHANNELS_TWO/4; ++j) {
                     inp = relu(intermediate_two[j]);
                     w = float4x4(
-                        _WeightsTwo.Load(int3(0, j * 4, 0)),
-                        _WeightsTwo.Load(int3(0, j * 4 + 1, 0)),
-                        _WeightsTwo.Load(int3(0, j * 4 + 2, 0)),
-                        _WeightsTwo.Load(int3(0, j * 4 + 3, 0))
+                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE, 0)),
+                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE + 1, 0)),
+                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE + 2, 0)),
+                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE + 3, 0))
                     );
                     result.xyz += (mul(inp, w)).xyz;
                 }
