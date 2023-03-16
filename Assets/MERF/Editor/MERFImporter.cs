@@ -232,6 +232,8 @@ public class MERFImporter {
 
         // occupancy grid .pngs have resolutions up to 16384, which Unity
         // doesn't let us decode into Texture2Ds, so we use a 3rd party lib.
+        // unlike Unity's ImageConversion.LoadImage() this library decodes the
+        // data as laid out in the file: starting top left.
         byte[] occupancyGridData;
         using (var stream = File.OpenRead(path)) {
             Png image = Png.Open(stream);
@@ -279,10 +281,10 @@ public class MERFImporter {
         List<Task<Texture2D>> planeTasks = new List<Task<Texture2D>>();
 
         for (int plane_idx = 0; plane_idx < 3; ++plane_idx) {
-            Task<Texture2D> t = DownloadPlaneRGBPNGAsync(sceneUrls, scene, plane_idx);
-            planeTasks.Add(t);
-            t = DownloadPlaneFeaturesRGBPNGAsync(sceneUrls, scene, plane_idx);
-            planeTasks.Add(t);
+            Task<Texture2D> t_rgb = DownloadPlaneRGBPNGAsync(sceneUrls, scene, plane_idx);
+            planeTasks.Add(t_rgb);
+            Task<Texture2D> t_f = DownloadPlaneFeaturesRGBPNGAsync(sceneUrls, scene, plane_idx);
+            planeTasks.Add(t_f);
         }
 
         Texture2D[] results = await Task.WhenAll(planeTasks);
@@ -308,6 +310,7 @@ public class MERFImporter {
             wrapMode = TextureWrapMode.Clamp
         };
         planeRGBImages.LoadImage(atlasIndexData);
+        planeRGBImages.name = $"plane_rgb_and_density_{i}";
 
         return planeRGBImages;
     }
@@ -331,6 +334,7 @@ public class MERFImporter {
             wrapMode = TextureWrapMode.Clamp
         };
         planeFeaturesImage.LoadImage(atlasIndexData);
+        planeFeaturesImage.name = $"plane_features_{i}";
 
         return planeFeaturesImage;
     }
@@ -429,7 +433,7 @@ public class MERFImporter {
     /// <summary>
     /// Load triplanes.
     /// </summary>
-    private static void CreateTriplaneRGBTextureArrays(MERFScene scene, Texture2D[] planeImages, SceneParams sceneParams) {
+    private static void CreateTriplaneTextureArrays(MERFScene scene, Texture2D[] planeImages, SceneParams sceneParams) {
         //if (useTriplane)
         int planeWidth = sceneParams.PlaneWidth0;
         int planeHeight = sceneParams.PlaneHeight0;
@@ -445,7 +449,7 @@ public class MERFImporter {
 
             Texture2D planeRgbAndDensity = planeImages[2 * plane_idx];
             Texture2D planeFeatures      = planeImages[2 * plane_idx + 1];
-            // in ARGB format
+            // both in ARGB format!
             NativeArray<byte> rgbAndDensity = planeRgbAndDensity.GetRawTextureData<byte>();
             NativeArray<byte> features = planeFeatures.GetRawTextureData<byte>();
 
@@ -875,7 +879,7 @@ public class MERFImporter {
         material.SetTexture("_SparseGridRgb"     , _context.RGBVolumeTexture);
         material.SetTexture("_SparseGridFeatures", _context.FeatureVolumeTexture);
         material.SetTexture("_SparseGridIndex"   , _context.AtlasIndexTexture);
-        material.SetFloat  ("_BlockSize"         ,        sceneParams.BlockSize);
+        material.SetFloat  ("_BlockSize"         , sceneParams.BlockSize);
         material.SetFloat  ("_VoxelSize"         , (float)sceneParams.VoxelSize);
         material.SetVector ("_GridSize"          , new Vector4(sceneParams.GridWidth, sceneParams.GridHeight, sceneParams.GridDepth, 0));
         material.SetVector ("_AtlasSize"         , new Vector4(sceneParams.AtlasWidth, sceneParams.AtlasHeight, sceneParams.AtlasDepth, 0));
@@ -933,7 +937,7 @@ public class MERFImporter {
 
         Progress.Report(progressId, 0.4f, $"{AssemblyInfo}'{objName}'...");
 
-        CreateTriplaneRGBTextureArrays(scene, planeImages, sceneParams);
+        CreateTriplaneTextureArrays(scene, planeImages, sceneParams);
 
         Progress.Report(progressId, 0.5f, $"{AssemblyInfo}'{objName}'...");
 
