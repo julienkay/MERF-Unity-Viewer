@@ -424,6 +424,7 @@ public class MERFImporter {
 
         // flip the y axis for each depth slice
         FlipY<Color24>(atlasIndex3DVolume);
+        FlipZ<Color24>(atlasIndex3DVolume);
         atlasIndex3DVolume.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
         CreateAsset(atlasIndex3DVolume, atlasAssetPath);
@@ -466,11 +467,11 @@ public class MERFImporter {
         }
 
         FlipY<Color24>(planeRgbTexture);
-        FlipZ<Color24>(planeRgbTexture);
+        //FlipZ<Color24>(planeRgbTexture);
         FlipY<byte>(planeDensityTexture);
-        FlipZ<byte>(planeDensityTexture);
+        //FlipZ<byte>(planeDensityTexture);
         FlipY<Color32>(planeFeaturesTexture);
-        FlipZ<Color32>(planeFeaturesTexture);
+        //FlipZ<Color32>(planeFeaturesTexture);
 
         planeRgbTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
         planeDensityTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
@@ -565,9 +566,9 @@ public class MERFImporter {
         }
 
         FlipY<Color24>(rgbVolumeTexture);
-        FlipZ<Color24>(rgbVolumeTexture, sceneParams.AtlasBlocksZ);
+        //FlipZ<Color24>(rgbVolumeTexture, sceneParams.AtlasBlocksZ);
         FlipY<byte>(densityVolumeTexture);
-        FlipZ<byte>(densityVolumeTexture, sceneParams.AtlasBlocksZ);
+        //FlipZ<byte>(densityVolumeTexture, sceneParams.AtlasBlocksZ);
 
         rgbVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
         densityVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
@@ -607,7 +608,7 @@ public class MERFImporter {
             }
         }
         FlipY<Color32>(featureVolumeTexture);
-        FlipZ<Color32>(featureVolumeTexture, sceneParams.AtlasBlocksZ);
+        //FlipZ<Color32>(featureVolumeTexture, sceneParams.AtlasBlocksZ);
 
         featureVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
