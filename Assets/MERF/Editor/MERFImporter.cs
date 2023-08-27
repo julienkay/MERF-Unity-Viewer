@@ -61,6 +61,7 @@ public class MERFImporter {
         await ImportAssetsAsync(MERFScene.KitchenCounter);
     }
 
+    private const string JSON_BASE_URL = "https://creiser.github.io/assets/scenes/";
     private const string BASE_URL = "https://merf42.github.io/viewer/scenes/";
 
     private static string BASE_FOLDER = Path.Combine("Assets", "MERF Data");
@@ -78,7 +79,7 @@ public class MERFImporter {
         return Path.Combine(BASE_URL, scene.String());
     }
     private static Uri GetMERFSourcesUrl(MERFScene scene) {
-        return new Uri(Path.Combine(BASE_URL, $"{scene.String()}.json"));
+        return new Uri(Path.Combine(JSON_BASE_URL, $"{scene.String()}.json"));
     }
 
     private static string GetSceneParamsAssetPath(MERFScene scene) {
