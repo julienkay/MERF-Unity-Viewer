@@ -1,10 +1,12 @@
-public static class RaymarchShader {
+namespace MERF.Editor {
 
-    /// <summary>
-    /// The ray marching shader is built programmatically.
-    /// This string contains the template for the shader.
-    /// </summary>
-    public const string Template = @"Shader ""MERF/RayMarchShader_OBJECT_NAME"" {
+    public static class RaymarchShader {
+
+        /// <summary>
+        /// The ray marching shader is built programmatically.
+        /// This string contains the template for the shader.
+        /// </summary>
+        public const string Template = @"Shader ""MERF/RayMarchShader_OBJECT_NAME"" {
     Properties {
         _OccupancyGrid_L4      (""OccupancyGrid L4 (3D)""  , 3D     ) = """" {}
         _OccupancyGrid_L3      (""OccupancyGrid L3 (3D)""  , 3D     ) = """" {}
@@ -130,25 +132,25 @@ public static class RaymarchShader {
 }
 ";
 
-    public static string RayMarchVertexShader {
-        get {
-            return VERTEX;
+        public static string RayMarchVertexShader {
+            get {
+                return VERTEX;
+            }
         }
-    }
 
-    public static string RayMarchFragmentShaderBody {
-        get {
-            return FRAGMENT;
+        public static string RayMarchFragmentShaderBody {
+            get {
+                return FRAGMENT;
+            }
         }
-    }
 
-    public static string ViewDependenceNetworkShaderFunctions {
-        get {
-            return VIEWDEPENDENCY;
+        public static string ViewDependenceNetworkShaderFunctions {
+            get {
+                return VIEWDEPENDENCY;
+            }
         }
-    }
 
-    private const string VIEWDEPENDENCY = @"float indexToPosEnc(float3 dir, int index) {
+        private const string VIEWDEPENDENCY = @"float indexToPosEnc(float3 dir, int index) {
                 float coordinate =
                     (index % 3 == 0) ? dir.x : (
                     (index % 3 == 1) ? dir.y : dir.z);
@@ -598,7 +600,7 @@ public static class RaymarchShader {
             }
 ";
 
-    private const string FRAGMENT = @"float2 rayAabbIntersection(float3 aabbMin, float3 aabbMax, float3 origin, float3 invDirection) {
+        private const string FRAGMENT = @"float2 rayAabbIntersection(float3 aabbMin, float3 aabbMax, float3 origin, float3 invDirection) {
               float3 t1 = (aabbMin - origin) * invDirection;
               float3 t2 = (aabbMax - origin) * invDirection;
               float3 tMin = min(t1, t2);
@@ -1272,7 +1274,7 @@ public static class RaymarchShader {
               return fixed4(accumulatedColor, 1.0);
             }
 ";
-    private const string VERTEX = @"v2f vert (appdata v) {
+        private const string VERTEX = @"v2f vert (appdata v) {
                 v2f o;
                 o.vertex = UnityObjectToClipPos(v.vertex);
 
@@ -1282,4 +1284,5 @@ public static class RaymarchShader {
                 return o;
             }
 ";
+    }
 }
