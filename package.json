@@ -1,0 +1,16 @@
+{
+   "name": "com.doji.merf",
+   "version": "0.1.0",
+   "displayName": "MERF",
+   "description": "An unofficial Unity port of the MERF viewer.",
+   "dependencies":
+   {
+      "com.unity.nuget.newtonsoft-json": "3.2.1"
+   },
+   "author":
+   {
+      "name": "Doji Technologies",
+      "email": "support@doji-tech.com",
+      "url": "https://www.doji-tech.com/"
+   }
+}
