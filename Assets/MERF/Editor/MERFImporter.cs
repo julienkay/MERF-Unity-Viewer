@@ -15,167 +15,116 @@ using static WebRequestAsyncUtility;
 public class MERFImporter {
 
     private static readonly string LoadingTitle = "Loading Assets";
-    private static readonly string ProcessingTitle = "Processing Assets";
     private static readonly string DownloadInfo = "Loading Assets for ";
     private static readonly string AssemblyInfo = "Assembling 3D Volume Textures for ";
-    private static readonly string DownloadAllTitle = "Downloading All Assets";
-    private static readonly string DownloadAllMessage = "You are about to download all the demo scenes from the MERF paper!\nDownloading/Processing might take a few minutes and quite a bit of RAM & disk space.\n\nClick 'OK', if you wish to continue.";
+    private static readonly string FolderTitle = "Select folder with MERF source files";
+    private static readonly string FolderExistsTitle = "Folder already exists";
+    private static readonly string FolderExistsMsg = "A folder for this asset already exists in the Unity project. Overwrite?";
+    private static readonly string OK = "OK";
+    private static readonly string ImportErrorTitle = "Error importing MERF assets";
 
-    [MenuItem("MERF/Asset Downloads/Download All", false, -20)]
-    public static async void DownloadAllAssets() {
-        if (!EditorUtility.DisplayDialog(DownloadAllTitle, DownloadAllMessage, "OK")) {
+    [MenuItem("MERF/Import from disk", false, 0)]
+    public async static void ImportAssetsFromDisk() {
+        // select folder with custom data
+        string path = EditorUtility.OpenFolderPanel(FolderTitle, "", "");
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) {
             return;
         }
 
-        foreach (var scene in (MERFScene[])Enum.GetValues(typeof(MERFScene))) {
-            await ImportAssetsAsync(scene);
+        // ask whether to overwrite existing folder
+        string objName = new DirectoryInfo(path).Name;
+        if (Directory.Exists($"{BASE_FOLDER}{objName}")) {
+            if (!EditorUtility.DisplayDialog(FolderExistsTitle, FolderExistsMsg, OK)) {
+                return;
+            }
         }
+
+        await ImportCustomScene(path);
     }
 
     [MenuItem("MERF/Asset Downloads/Gardenvase", false, 0)]
     public static async void DownloadGardenvaseAssets() {
-        await ImportAssetsAsync(MERFScene.Gardenvase);
+        await ImportDemoSceneAsync(MERFScene.Gardenvase);
     }
     [MenuItem("MERF/Asset Downloads/Bicycle", false, 0)]
     public static async void DownloadBicycleAssets() {
-        await ImportAssetsAsync(MERFScene.Bicycle);
+        await ImportDemoSceneAsync(MERFScene.Bicycle);
     }
     [MenuItem("MERF/Asset Downloads/Kitchen Lego", false, 0)]
     public static async void DownloadKitchenLegoAssets() {
-        await ImportAssetsAsync(MERFScene.KitchenLego);
+        await ImportDemoSceneAsync(MERFScene.KitchenLego);
     }
     [MenuItem("MERF/Asset Downloads/Stump", false, 0)]
     public static async void DownloadStumpAssets() {
-        await ImportAssetsAsync(MERFScene.Stump);
+        await ImportDemoSceneAsync(MERFScene.Stump);
     }
     [MenuItem("MERF/Asset Downloads/Bonsai", false, 0)]
     public static async void DownloadOfficeBonsaiAssets() {
-        await ImportAssetsAsync(MERFScene.OfficeBonsai);
+        await ImportDemoSceneAsync(MERFScene.OfficeBonsai);
     }
     [MenuItem("MERF/Asset Downloads/Full Living Room", false, 0)]
     public static async void DownloadFullLivingRoomAssets() {
-        await ImportAssetsAsync(MERFScene.FullLivingRoom);
+        await ImportDemoSceneAsync(MERFScene.FullLivingRoom);
     }
     [MenuItem("MERF/Asset Downloads/Kitchen Counter", false, 0)]
     public static async void DownloadKitchenCounterAssets() {
-        await ImportAssetsAsync(MERFScene.KitchenCounter);
+        await ImportDemoSceneAsync(MERFScene.KitchenCounter);
     }
 
-    private const string JSON_BASE_URL = "https://creiser.github.io/assets/scenes/";
-    private const string BASE_URL = "https://merf42.github.io/viewer/scenes/";
-
+    private const string BASE_URL = "https://creiser.github.io/assets/scenes/";
     private static string BASE_FOLDER = Path.Combine("Assets", "MERF Data");
     private static string BASE_LIB_FOLDER = Path.Combine("Library", "Cached MERF Data");
 
-    private static string GetBasePath(MERFScene scene) {
-        return Path.Combine(BASE_FOLDER, scene.String());
-    }
+    private static string BasePath => Path.Combine(BASE_FOLDER, _context.SceneName);
 
-    private static string GetCacheLocation(MERFScene scene) {
-        return Path.Combine(BASE_LIB_FOLDER, scene.String());
-    }
-
-    internal static string GetBaseUrl(MERFScene scene) {
-        return Path.Combine(BASE_URL, scene.String());
-    }
     private static Uri GetMERFSourcesUrl(MERFScene scene) {
-        return new Uri(Path.Combine(JSON_BASE_URL, $"{scene.String()}.json"));
+        return new Uri(Path.Combine(BASE_URL, $"{scene.LowerCaseName()}.json"));
     }
 
-    private static string GetSceneParamsAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/SceneParams/{scene.String()}.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetPlaneRGBAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} RGB Triplane Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetPlaneDensityAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Density Triplane Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetPlaneFeaturesAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Features Triplane Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetOccupancyGridAssetPath(MERFScene scene, int i) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Occupancy Grid {i} Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetRGBVolumeTextureAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} RGB Volume Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetDensityVolumeTextureAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Density Volume Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetFeatureVolumeTextureAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Feature Volume Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetAtlasTextureAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Textures/{scene.String()} Atlas Index Texture.asset";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetShaderAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Shaders/RayMarchShader_{scene}.shader";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetMaterialAssetPath(MERFScene scene) {
-        string path = $"{GetBasePath(scene)}/Materials/Material_{scene}.mat";
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetWeightsAssetPath(MERFScene scene, int i) {
-        string path = $"{GetBasePath(scene)}/SceneParams/weightsTex{i}.asset";
+    private static string SceneParamsAssetPath => GetAssetPath("SceneParams", $"{_context.SceneName}.asset");
+    private static string PlaneRGBAssetPath => GetAssetPath("Textures", $"{_context.SceneName} RGB Triplane Texture.asset");
+    private static string PlaneDensityAssetPath => GetAssetPath("Textures", $"{_context.SceneName} Density Triplane Texture.asset");
+    private static string PlaneFeaturesAssetPath => GetAssetPath("Textures", $"{_context.SceneName} Features Triplane Texture.asset");
+    private static string OccupancyGridAssetPath(int i) => GetAssetPath("Textures", $"{_context.SceneName} Occupancy Grid {i} Texture.asset");
+    private static string RGBVolumeTextureAssetPath => GetAssetPath("Textures", $"{_context.SceneName} RGB Volume Texture.asset");
+    private static string DensityVolumeTextureAssetPath => GetAssetPath("Textures", $"{_context.SceneName} Density Volume Texture.asset");
+    private static string FeatureVolumeTextureAssetPath => GetAssetPath("Textures", $"{_context.SceneName} Feature Volume Texture.asset");
+    private static string AtlasTextureAssetPath => GetAssetPath("Textures", $"{_context.SceneName} Atlas Index Texture.asset");
+    private static string ShaderAssetPath => GetAssetPath("Shaders", $"RayMarchShader_{_context.SceneName}.shader");
+    private static string MaterialAssetPath => GetAssetPath("Materials", $"Material_{_context.SceneName}.mat");
+    private static string WeightsAssetPath(int i) => GetAssetPath("SceneParams", $"weightsTex{i}.asset");
+    private static string PrefabAssetPath => GetAssetPath("", $"{_context.SceneName}.prefab");
+
+    /// <summary>
+    /// This returns a path in the asset directory to store the specific asset into.
+    /// </summary>
+    private static string GetAssetPath(string subFolder, string assetName) {
+        string path = Path.Combine(BasePath, subFolder, assetName);
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         return path;
     }
 
-    private static string GetOccupancyGridCachePath(MERFScene scene, int i) {
-        string path = Path.Combine(GetCacheLocation(scene), $"occupancy_grid_{i}.png");
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetAtlasIndexCachePath(MERFScene scene) {
-        string path = Path.Combine(GetCacheLocation(scene), "atlas_indices.png");
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetPlaneRGBCachePath(MERFScene scene, int i) {
-        string path = Path.Combine(GetCacheLocation(scene), $"plane_rgb_and_density_{i}.png");
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetPlaneFeaturesCachePath(MERFScene scene, int i) {
-        string path = Path.Combine(GetCacheLocation(scene), $"plane_features_{i}.png");
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetRGBVolumeCachePath(MERFScene scene, int i) {
-        string path = Path.Combine(GetCacheLocation(scene), $"rgba_{i:D3}.png");
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetFeatureVolumeCachePath(MERFScene scene, int i) {
-        string path = Path.Combine(GetCacheLocation(scene), $"feature_{i:D3}.png");
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
-    }
-    private static string GetSceneUrlsCachePath(MERFScene scene) {
-        string path = Path.Combine(GetCacheLocation(scene), $"{scene.String()}.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
+    private static string OccupancyGridCachePath(int i) => GetCachePath($"occupancy_grid_{i}.png");
+    private static string AtlasIndexCachePath => GetCachePath("atlas_indices.png");
+    private static string PlaneRGBCachePath(int i) => GetCachePath($"plane_rgb_and_density_{i}.png");
+    private static string PlaneFeaturesCachePath(int i) => GetCachePath($"plane_features_{i}.png");
+    private static string RGBVolumeCachePath(int i) => GetCachePath($"rgba_{i:D3}.png");
+    private static string FeatureVolumeCachePath(int i) => GetCachePath($"feature_{i:D3}.png");
+    private static string SceneUrlsCachePath => GetCachePath($"{_context.SceneName}.json");
+
+
+    /// <summary>
+    /// This is either the location where demo scenes are first downloaded to,
+    /// or the path to the source files for custom scene imports.
+    /// </summary>
+    private static string GetCachePath(string assetName) {
+        string path;
+        if (_context.CustomScene) {
+            path = Path.Combine(_context.CustomScenePath, assetName);
+        } else {
+            path = Path.Combine(Path.Combine(BASE_LIB_FOLDER, _context.SceneName , assetName));
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+        }
         return path;
     }
 
@@ -183,15 +132,107 @@ public class MERFImporter {
 
     private static ImportContext _context;
 
-    private static async Task<MERFSources> DownloadSceneUrlsAsync(MERFScene scene) {
-        string path = GetSceneUrlsCachePath(scene);
+    /// <summary>
+    /// Creates Unity assets for the given MERF assets on disk.
+    /// </summary>
+    /// <param name="path">The path to the folder with the MERF assets (PNGs & mlp.json)</param>
+    private static async Task ImportCustomScene(string path) {
+        _context = new ImportContext() {
+            CustomScene = true,
+            CustomScenePath = path,
+            Scene = MERFScene.Custom
+        };
+        string objName = new DirectoryInfo(path).Name;
+
+        SceneParams sceneParams = CopySceneParamsFromPath(path);
+        if (sceneParams == null) {
+            return;
+        }
+
+        //TODO: validate if all expected assets are there
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        await ProcessAssets(objName, null);
+    }
+
+    private static async Task ImportDemoSceneAsync(MERFScene scene) {
+        _context = new ImportContext() {
+            CustomScene = false,
+            Scene = scene
+        };
+
+        MERFSources sceneUrls = await DownloadSceneUrlsAsync();
+        await DownloadSceneParamsAsync(sceneUrls);
+
+        await ProcessAssets(scene.Name(), sceneUrls);
+    }
+
+    private static async Task ProcessAssets(string sceneName, MERFSources sceneUrls) {
+        var sceneParams = GetSceneParams();
+
+        int progressId = Progress.Start(LoadingTitle, $"{DownloadInfo}'{sceneName}'...");
+        byte[][] occupancyGrid = await DownloadOccupancyGridPNGsAsync(sceneUrls);
+
+        bool useSparseGrid = sceneParams.VoxelSize > 0;
+        Task<Texture2D> atlasIndexTask = null;
+        if (useSparseGrid) {
+            // Load the indirection grid.
+            atlasIndexTask = DownloadAtlasIndexPNGAsync(sceneUrls);
+        }
+
+        Texture2D[] planeImages = null;
+        bool useTriplane = true; //sceneParams.ContainsKey("voxel_size_triplane");
+        if (useTriplane) {
+            planeImages = await DownloadPlanePNGsAsync(sceneUrls);
+        }
+
+        var rgbVolumeTask = DownloadRGBVolumeDataAsync(sceneUrls, sceneParams);
+        var featureVolumeTask = DownloadFeatureVolumeDataAsync(sceneUrls, sceneParams);
+
+        Texture2D[] rgbImages = await rgbVolumeTask;
+        Texture2D[] featureImages = await featureVolumeTask;
+
+        // create 3D volumes and other assets
+        Progress.Report(progressId, 0.3f, $"{AssemblyInfo}'{sceneName}'...");
+
+        Texture2D atlasIndexData = await atlasIndexTask;
+        CreateAtlasIndexTexture(atlasIndexData, sceneParams);
+
+        Progress.Report(progressId, 0.4f, $"{AssemblyInfo}'{sceneName}'...");
+
+        CreateTriplaneTextureArrays(planeImages, sceneParams);
+
+        Progress.Report(progressId, 0.5f, $"{AssemblyInfo}'{sceneName}'...");
+
+        CreateOccupancyGridTexture(occupancyGrid, sceneParams);
+
+        Progress.Report(progressId, 0.6f, $"{AssemblyInfo}'{sceneName}'...");
+
+        if (useSparseGrid) {
+            CreateRGBAndDensityVolumeTexture(rgbImages, sceneParams);
+            CreateFeatureVolumeTexture(featureImages, sceneParams);
+        }
+
+        Progress.Report(progressId, 0.7f, $"{AssemblyInfo}'{sceneName}'...");
+
+        CreateMaterial(sceneParams);
+
+        CreatePrefab(sceneParams);
+
+        Progress.Remove(progressId);
+    }
+
+    private static async Task<MERFSources> DownloadSceneUrlsAsync() {
+        string path = SceneUrlsCachePath;
         string sceneUrlsJsonString;
 
         if (File.Exists(path)) {
             // file is already downloaded
             sceneUrlsJsonString = File.ReadAllText(path);
         } else {
-            Uri url = GetMERFSourcesUrl(scene);
+            Uri url = GetMERFSourcesUrl(_context.Scene);
             sceneUrlsJsonString = await WebRequestSimpleAsync.SendWebRequestAsync(url);
             File.WriteAllText(path, sceneUrlsJsonString);
         }
@@ -200,21 +241,47 @@ public class MERFImporter {
         return sceneUrls;
     }
 
-    private static async Task<SceneParams> DownloadSceneParamsAsync(MERFSources sceneUrls, MERFScene scene) {
+    /// <summary>
+    /// Looks for a scene_params.json at <paramref name="path"/> and imports it.
+    /// </summary>
+    private static SceneParams CopySceneParamsFromPath(string path) {
+        string[] sceneParamsPaths = Directory.GetFiles(path, "scene_params.json", SearchOption.AllDirectories);
+        if (sceneParamsPaths.Length > 1) {
+            EditorUtility.DisplayDialog(ImportErrorTitle, "Multiple scene_params.json files found", OK);
+            return null;
+        }
+        if (sceneParamsPaths.Length <= 0) {
+            EditorUtility.DisplayDialog(ImportErrorTitle, "No scene_params.json files found", OK);
+            return null;
+        }
+
+        string sceneParamsJson = File.ReadAllText(sceneParamsPaths[0]);
+        TextAsset sceneParamsTextAsset = new TextAsset(sceneParamsJson);
+        AssetDatabase.CreateAsset(sceneParamsTextAsset, SceneParamsAssetPath);
+        SceneParams sceneParams = JsonConvert.DeserializeObject<SceneParams>(sceneParamsJson);
+        return sceneParams;
+    }
+
+    private static async Task<SceneParams> DownloadSceneParamsAsync(MERFSources sceneUrls) {
         Uri url = sceneUrls.Get("scene_params.json");
         string sceneParamsJson = await WebRequestSimpleAsync.SendWebRequestAsync(url);
         TextAsset mlpJsonTextAsset = new TextAsset(sceneParamsJson);
-        CreateAsset(mlpJsonTextAsset, GetSceneParamsAssetPath(scene));
+        CreateAsset(mlpJsonTextAsset, SceneParamsAssetPath);
 
         SceneParams sceneParams = JsonConvert.DeserializeObject<SceneParams>(sceneParamsJson);
         return sceneParams;
     }
 
-    private static async Task<byte[][]> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+    private static SceneParams GetSceneParams() {
+        string mlpJson = AssetDatabase.LoadAssetAtPath<TextAsset>(SceneParamsAssetPath).text;
+        return JsonConvert.DeserializeObject<SceneParams>(mlpJson);
+    }
+
+    private static async Task<byte[][]> DownloadOccupancyGridPNGsAsync(MERFSources sceneUrls) {
         List<Task<byte[]>> occupancyGridTasks = new List<Task<byte[]>>();
 
         for (int i = 0; i < occupancyGridBlockSizes.Length; i++) {
-            Task<byte[]> t = DownloadOccupancyGridPNGAsync(sceneUrls, scene, i);
+            Task<byte[]> t = DownloadOccupancyGridPNGAsync(sceneUrls, i);
             occupancyGridTasks.Add(t);
         }
 
@@ -222,8 +289,8 @@ public class MERFImporter {
         return results;
     }
 
-    private static async Task<byte[]> DownloadOccupancyGridPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
-        string path = GetOccupancyGridCachePath(scene, occupancyGridBlockSizes[i]);
+    private static async Task<byte[]> DownloadOccupancyGridPNGAsync(MERFSources sceneUrls, int i) {
+        string path = OccupancyGridCachePath(occupancyGridBlockSizes[i]);
 
         if (!File.Exists(path)) {
             Uri url = sceneUrls.Get($"occupancy_grid_{occupancyGridBlockSizes[i]}.png");
@@ -252,8 +319,8 @@ public class MERFImporter {
         return occupancyGridData;
     }
 
-    private static async Task<Texture2D> DownloadAtlasIndexPNGAsync(MERFSources sceneUrls, MERFScene scene) {
-        string path = GetAtlasIndexCachePath(scene);
+    private static async Task<Texture2D> DownloadAtlasIndexPNGAsync(MERFSources sceneUrls) {
+        string path = AtlasIndexCachePath;
         byte[] atlasIndexData;
 
         if (File.Exists(path)) {
@@ -278,13 +345,13 @@ public class MERFImporter {
     }
 
 
-    private static async Task<Texture2D[]> DownloadPlanePNGsAsync(MERFSources sceneUrls, MERFScene scene) {
+    private static async Task<Texture2D[]> DownloadPlanePNGsAsync(MERFSources sceneUrls) {
         List<Task<Texture2D>> planeTasks = new List<Task<Texture2D>>();
 
         for (int plane_idx = 0; plane_idx < 3; ++plane_idx) {
-            Task<Texture2D> t_rgb = DownloadPlaneRGBPNGAsync(sceneUrls, scene, plane_idx);
+            Task<Texture2D> t_rgb = DownloadPlaneRGBPNGAsync(sceneUrls, plane_idx);
             planeTasks.Add(t_rgb);
-            Task<Texture2D> t_f = DownloadPlaneFeaturesRGBPNGAsync(sceneUrls, scene, plane_idx);
+            Task<Texture2D> t_f = DownloadPlaneFeaturesRGBPNGAsync(sceneUrls, plane_idx);
             planeTasks.Add(t_f);
         }
 
@@ -292,8 +359,8 @@ public class MERFImporter {
         return results;
     }
 
-    private static async Task<Texture2D> DownloadPlaneRGBPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
-        string path = GetPlaneRGBCachePath(scene, i);
+    private static async Task<Texture2D> DownloadPlaneRGBPNGAsync(MERFSources sceneUrls, int i) {
+        string path = PlaneRGBCachePath(i);
         byte[] atlasIndexData;
 
         if (File.Exists(path)) {
@@ -316,8 +383,8 @@ public class MERFImporter {
         return planeRGBImages;
     }
 
-    private static async Task<Texture2D> DownloadPlaneFeaturesRGBPNGAsync(MERFSources sceneUrls, MERFScene scene, int i) {
-        string path = GetPlaneFeaturesCachePath(scene, i);
+    private static async Task<Texture2D> DownloadPlaneFeaturesRGBPNGAsync(MERFSources sceneUrls, int i) {
+        string path = PlaneFeaturesCachePath(i);
         byte[] atlasIndexData;
 
         if (File.Exists(path)) {
@@ -340,10 +407,10 @@ public class MERFImporter {
         return planeFeaturesImage;
     }
 
-    private static async Task<Texture2D[]> DownloadRGBVolumeDataAsync(MERFSources sceneUrls, MERFScene scene, SceneParams sceneParams) {
+    private static async Task<Texture2D[]> DownloadRGBVolumeDataAsync(MERFSources sceneUrls, SceneParams sceneParams) {
         Texture2D[] rgbVolumeArray = new Texture2D[sceneParams.NumSlices];
         for (int i = 0; i < sceneParams.NumSlices; i++) {
-            string path = GetRGBVolumeCachePath(scene, i);
+            string path = RGBVolumeCachePath(i);
             byte[] rgbVolumeData;
 
             if (File.Exists(path)) {
@@ -368,11 +435,11 @@ public class MERFImporter {
         return rgbVolumeArray;
     }
 
-    private static async Task<Texture2D[]> DownloadFeatureVolumeDataAsync(MERFSources sceneUrls, MERFScene scene, SceneParams sceneParams) {
+    private static async Task<Texture2D[]> DownloadFeatureVolumeDataAsync(MERFSources sceneUrls, SceneParams sceneParams) {
         Texture2D[] featureVolumeArray = new Texture2D[sceneParams.NumSlices];
 
         for (int i = 0; i < sceneParams.NumSlices; i++) {
-            string path = GetFeatureVolumeCachePath(scene, i);
+            string path = FeatureVolumeCachePath(i);
             byte[] featureVolumeData;
 
             if (File.Exists(path)) {
@@ -399,12 +466,12 @@ public class MERFImporter {
     /// <summary>
     /// Loads the indirection grid.
     /// </summary>
-    private static void CreateAtlasIndexTexture(MERFScene scene, Texture2D atlasIndexImage, SceneParams sceneParams) {
+    private static void CreateAtlasIndexTexture(Texture2D atlasIndexImage, SceneParams sceneParams) {
         int width = (int)Mathf.Ceil(sceneParams.GridWidth / (float)sceneParams.BlockSize);
         int height = (int)Mathf.Ceil(sceneParams.GridHeight / (float)sceneParams.BlockSize);
         int depth = (int)Mathf.Ceil(sceneParams.GridDepth / (float)sceneParams.BlockSize);
 
-        string atlasAssetPath = GetAtlasTextureAssetPath(scene);
+        string atlasAssetPath = AtlasTextureAssetPath;
 
         // initialize 3D texture
         Texture3D atlasIndex3DVolume = CreateVolumeTexture(width, height, depth, TextureFormat.RGB24, FilterMode.Point);
@@ -424,6 +491,7 @@ public class MERFImporter {
         atlasIndex3DVolume.SetPixelData(atlasVolumeData, 0);
 
         // flip the y axis for each depth slice
+        //FlipX<Color24>(atlasIndex3DVolume);
         FlipY<Color24>(atlasIndex3DVolume);
         FlipZ<Color24>(atlasIndex3DVolume);
         atlasIndex3DVolume.Apply(updateMipmaps: false, makeNoLongerReadable: true);
@@ -435,7 +503,7 @@ public class MERFImporter {
     /// <summary>
     /// Load triplanes.
     /// </summary>
-    private static void CreateTriplaneTextureArrays(MERFScene scene, Texture2D[] planeImages, SceneParams sceneParams) {
+    private static void CreateTriplaneTextureArrays(Texture2D[] planeImages, SceneParams sceneParams) {
         //if (useTriplane)
         int planeWidth = sceneParams.PlaneWidth0;
         int planeHeight = sceneParams.PlaneHeight0;
@@ -467,10 +535,13 @@ public class MERFImporter {
             }
         }
 
+        //FlipX<Color24>(planeRgbTexture);
         FlipY<Color24>(planeRgbTexture);
         //FlipZ<Color24>(planeRgbTexture);
+        //FlipX<byte>(planeDensityTexture);
         FlipY<byte>(planeDensityTexture);
         //FlipZ<byte>(planeDensityTexture);
+        //FlipX<Color32>(planeFeaturesTexture);
         FlipY<Color32>(planeFeaturesTexture);
         //FlipZ<Color32>(planeFeaturesTexture);
 
@@ -478,9 +549,9 @@ public class MERFImporter {
         planeDensityTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
         planeFeaturesTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
-        CreateAsset(planeRgbTexture, GetPlaneRGBAssetPath(scene));
-        CreateAsset(planeDensityTexture , GetPlaneDensityAssetPath(scene));
-        CreateAsset(planeFeaturesTexture, GetPlaneFeaturesAssetPath(scene));
+        CreateAsset(planeRgbTexture, PlaneRGBAssetPath);
+        CreateAsset(planeDensityTexture , PlaneDensityAssetPath);
+        CreateAsset(planeFeaturesTexture, PlaneFeaturesAssetPath);
 
         _context.PlaneRgbTexture = planeRgbTexture;
         _context.PlaneDensityTexture = planeDensityTexture;
@@ -494,7 +565,7 @@ public class MERFImporter {
         };
     }
 
-    private static void CreateOccupancyGridTexture(MERFScene scene, byte[][] occupancyGrid, SceneParams sceneParams) {
+    private static void CreateOccupancyGridTexture(byte[][] occupancyGrid, SceneParams sceneParams) {
         int baseGridWidth;
         double baseVoxelSize;
         if (true) {  //if (useTriplane)
@@ -508,7 +579,7 @@ public class MERFImporter {
         Vector4[] occupancyGridSizes = new Vector4[occupancyGridBlockSizes.Length];
         double[] occupancyVoxelSizes = new double[occupancyGridBlockSizes.Length];
         for (int occupancyGridIndex = 0; occupancyGridIndex < occupancyGridBlockSizes.Length; occupancyGridIndex++) {
-            string occupancyAssetPath = GetOccupancyGridAssetPath(scene, occupancyGridIndex);
+            string occupancyAssetPath = OccupancyGridAssetPath(occupancyGridIndex);
             int occupancyGridBlockSize = occupancyGridBlockSizes[occupancyGridIndex];
             // Assuming width = height = depth which typically holds when employing
             // scene contraction
@@ -530,7 +601,7 @@ public class MERFImporter {
         _context.OccupancyVoxelSizes = occupancyVoxelSizes;
     }
 
-    private static void CreateRGBAndDensityVolumeTexture(MERFScene scene, Texture2D[] rgbImages, SceneParams sceneParams) {
+    private static void CreateRGBAndDensityVolumeTexture(Texture2D[] rgbImages, SceneParams sceneParams) {
         Debug.Assert(rgbImages.Length == sceneParams.NumSlices);
         int volumeWidth = sceneParams.AtlasWidth;
         int volumeHeight = sceneParams.AtlasHeight;
@@ -566,16 +637,19 @@ public class MERFImporter {
             }
         }
 
+
+        //FlipX<Color24>(rgbVolumeTexture);
         FlipY<Color24>(rgbVolumeTexture);
         //FlipZ<Color24>(rgbVolumeTexture, sceneParams.AtlasBlocksZ);
+        //FlipX<byte>(densityVolumeTexture);
         FlipY<byte>(densityVolumeTexture);
         //FlipZ<byte>(densityVolumeTexture, sceneParams.AtlasBlocksZ);
 
         rgbVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
         densityVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
-        string rgbVolumeAssetPath = GetRGBVolumeTextureAssetPath(scene);
-        string densityVolumeAssetPath = GetDensityVolumeTextureAssetPath(scene);
+        string rgbVolumeAssetPath = RGBVolumeTextureAssetPath;
+        string densityVolumeAssetPath = DensityVolumeTextureAssetPath;
         CreateAsset(rgbVolumeTexture, rgbVolumeAssetPath);
         CreateAsset(densityVolumeTexture, densityVolumeAssetPath);
 
@@ -583,7 +657,7 @@ public class MERFImporter {
         _context.DensityVolumeTexture = densityVolumeTexture;
     }
 
-    private static void CreateFeatureVolumeTexture(MERFScene scene, Texture2D[] featureImages, SceneParams sceneParams) {
+    private static void CreateFeatureVolumeTexture(Texture2D[] featureImages, SceneParams sceneParams) {
         Debug.Assert(featureImages.Length == sceneParams.NumSlices);
         int volumeWidth = sceneParams.AtlasWidth;
         int volumeHeight = sceneParams.AtlasHeight;
@@ -608,12 +682,14 @@ public class MERFImporter {
                 dst.CopyFrom(src);
             }
         }
+
+        //FlipX<Color32>(featureVolumeTexture);
         FlipY<Color32>(featureVolumeTexture);
         //FlipZ<Color32>(featureVolumeTexture, sceneParams.AtlasBlocksZ);
 
         featureVolumeTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
-        string featureVolumeAssetPath = GetFeatureVolumeTextureAssetPath(scene);
+        string featureVolumeAssetPath = FeatureVolumeTextureAssetPath;
         CreateAsset(featureVolumeTexture, featureVolumeAssetPath);
 
         _context.FeatureVolumeTexture = featureVolumeTexture;
@@ -624,6 +700,40 @@ public class MERFImporter {
             filterMode = filterMode,
             wrapMode = TextureWrapMode.Clamp,
         };
+    }
+
+    private static void FlipX<T>(Texture3D texture) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        int depth = texture.depth;
+        NativeArray<T> data = texture.GetPixelData<T>(0);
+        for (int z = 0; z < depth; z++) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width / 2; x++) {
+                    int flippedX = width - x - 1;
+                    int source = z * (width * height) + (y * width) + flippedX;
+                    int target = z * (width * height) + (y * width) + x;
+                    (data[target], data[source]) = (data[source], data[target]);
+                }
+            }
+        }
+    }
+
+    private static void FlipX<T>(Texture2DArray texture) where T : struct {
+        int width = texture.width;
+        int height = texture.height;
+        int depth = texture.depth;
+        for (int z = 0; z < depth; z++) {
+            NativeArray<T> data = texture.GetPixelData<T>(0, z);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width / 2; x++) {
+                    int flippedX = width - x - 1;
+                    int source = (y * width) + flippedX;
+                    int target = (y * width) + x;
+                    (data[target], data[source]) = (data[source], data[target]);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -782,14 +892,14 @@ public class MERFImporter {
     /// Assemble shader code from header, on-the-fly generated view-dependency
     /// functions and body
     /// </summary>
-    private static void CreateRayMarchShader(MERFScene scene, SceneParams sceneParams) {
+    private static void CreateRayMarchShader(SceneParams sceneParams) {
         string shaderSource = RaymarchShader.Template;
         shaderSource = new Regex("VIEWDEPENDENCESHADERFUNCTIONS").Replace(shaderSource, CreateViewDependenceFunctions(sceneParams));
         shaderSource = new Regex("RAYMARCHVERTEXSHADER"         ).Replace(shaderSource, RaymarchShader.RayMarchVertexShader);
         shaderSource = new Regex("RAYMARCHFRAGMENTSHADER"       ).Replace(shaderSource, RaymarchShader.RayMarchFragmentShaderBody);
 
-        shaderSource = new Regex("OBJECT_NAME").Replace(shaderSource, $"{scene}");
-        string shaderAssetPath = GetShaderAssetPath(scene);
+        shaderSource = new Regex("OBJECT_NAME").Replace(shaderSource, $"{_context.SceneNameUpperCase}");
+        string shaderAssetPath = ShaderAssetPath;
         File.WriteAllText(shaderAssetPath, shaderSource);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -801,14 +911,14 @@ public class MERFImporter {
     /// Upload networks weights into textures (biases are written into as
     /// compile-time constants into the shader)
     /// </summary>
-    private static void CreateWeightTextures(MERFScene scene, SceneParams sceneParams) {
+    private static void CreateWeightTextures(SceneParams sceneParams) {
         Texture2D weightsTexZero = CreateNetworkWeightTexture(sceneParams._0Weights);
         Texture2D weightsTexOne = CreateNetworkWeightTexture(sceneParams._1Weights);
         Texture2D weightsTexTwo = CreateNetworkWeightTexture(sceneParams._2Weights);
 
-        CreateAsset(weightsTexZero, GetWeightsAssetPath(scene, 0));
-        CreateAsset(weightsTexOne, GetWeightsAssetPath(scene, 1));
-        CreateAsset(weightsTexTwo, GetWeightsAssetPath(scene, 2));
+        CreateAsset(weightsTexZero, WeightsAssetPath(0));
+        CreateAsset(weightsTexOne, WeightsAssetPath(1));
+        CreateAsset(weightsTexTwo, WeightsAssetPath(2));
         AssetDatabase.SaveAssets();
 
         _context.WeightsTexZero = weightsTexZero;
@@ -816,11 +926,11 @@ public class MERFImporter {
         _context.WeightsTexTwo = weightsTexTwo;
     }
 
-    private static void CreateMaterial(MERFScene scene, SceneParams sceneParams) {
-        CreateRayMarchShader(scene, sceneParams);
-        CreateWeightTextures(scene, sceneParams);
+    private static void CreateMaterial(SceneParams sceneParams) {
+        CreateRayMarchShader(sceneParams);
+        CreateWeightTextures(sceneParams);
 
-        string materialAssetPath = GetMaterialAssetPath(scene);
+        string materialAssetPath = MaterialAssetPath;
         Shader raymarchShader =_context.Shader;
         Material material = new Material(raymarchShader);
 
@@ -840,7 +950,7 @@ public class MERFImporter {
         material.SetVector ("_GridSizeOccupancy_L2" , _context.OccupancyGridSizes[2]);
         material.SetVector ("_GridSizeOccupancy_L1" , _context.OccupancyGridSizes[3]);
         material.SetVector ("_GridSizeOccupancy_L0" , _context.OccupancyGridSizes[4]);
-        material.SetInteger("_DisplayMode"          , 0);
+        material.SetInteger("_DisplayMode"          , 1); // make diffuse default for now, view-dependent not working yet
         material.SetTexture("_WeightsZero"          , _context.WeightsTexZero);
         material.SetTexture("_WeightsOne"           , _context.WeightsTexOne);
         material.SetTexture("_WeightsTwo"           , _context.WeightsTexTwo);
@@ -896,68 +1006,21 @@ public class MERFImporter {
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         _context.Material = material;
-    }
-
-    private static async Task ImportAssetsAsync(MERFScene scene) {
-        _context = new ImportContext();
-        string objName = scene.String();
-
-        // first, make sure texture resources are downloaded to temp directory
-        // then load them into memory 
-        int progressId = Progress.Start(LoadingTitle, $"{DownloadInfo}'{objName}'...");
-        MERFSources sceneUrls = await DownloadSceneUrlsAsync(scene);
-        Progress.Report(progressId, 0.2f);
-
-        SceneParams sceneParams = await DownloadSceneParamsAsync(sceneUrls, scene);
-
-        byte[][] occupancyGrid = await DownloadOccupancyGridPNGsAsync(sceneUrls, scene);
-
-        bool useSparseGrid = sceneParams.VoxelSize > 0;
-        Task<Texture2D> atlasIndexTask = null;
-        if (useSparseGrid) {
-            // Load the indirection grid.
-            atlasIndexTask = DownloadAtlasIndexPNGAsync(sceneUrls, scene);
-        }
-
-        Texture2D[] planeImages = null;
-        bool useTriplane = true; //sceneParams.ContainsKey("voxel_size_triplane");
-        if (useTriplane) {
-            planeImages = await DownloadPlanePNGsAsync(sceneUrls, scene);
-        }
-
-        var rgbVolumeTask = DownloadRGBVolumeDataAsync(sceneUrls, scene, sceneParams);
-        var featureVolumeTask = DownloadFeatureVolumeDataAsync(sceneUrls, scene, sceneParams);
-
-        Texture2D[] rgbImages = await rgbVolumeTask;
-        Texture2D[] featureImages = await featureVolumeTask;
-
-        // create 3D volumes and other assets
-        Progress.Report(progressId, 0.3f, $"{AssemblyInfo}'{objName}'...");
-
-        Texture2D atlasIndexData = await atlasIndexTask;
-        CreateAtlasIndexTexture(scene, atlasIndexData, sceneParams);
-
-        Progress.Report(progressId, 0.4f, $"{AssemblyInfo}'{objName}'...");
-
-        CreateTriplaneTextureArrays(scene, planeImages, sceneParams);
-
-        Progress.Report(progressId, 0.5f, $"{AssemblyInfo}'{objName}'...");
-
-        CreateOccupancyGridTexture(scene, occupancyGrid, sceneParams);
-
-        Progress.Report(progressId, 0.6f, $"{AssemblyInfo}'{objName}'...");
-
-        if (useSparseGrid) {
-            CreateRGBAndDensityVolumeTexture(scene, rgbImages, sceneParams);
-            CreateFeatureVolumeTexture(scene, featureImages, sceneParams);
-        }
-
-        Progress.Report(progressId, 0.7f, $"{AssemblyInfo}'{objName}'...");
-
-        CreateMaterial(scene, sceneParams);
-
-        /*Initialize(scene, atlasIndexData, rgbImages, featureImages, sceneParams);*/
-
-        Progress.Remove(progressId);
+    }       
+    
+    /// <summary>
+    /// Creates a convenient prefab for the MERF scene..
+    /// </summary>
+    private static void CreatePrefab(SceneParams sceneParams) {
+        GameObject prefabObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        prefabObject.transform.localScale = Vector3.one * 1000;
+        GameObject.DestroyImmediate(prefabObject.GetComponent<Collider>());
+        prefabObject.name = _context.SceneName;
+        MeshRenderer renderer = prefabObject.GetComponent<MeshRenderer>();
+        string materialAssetPath = MaterialAssetPath;
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(materialAssetPath);
+        renderer.material = material;
+        PrefabUtility.SaveAsPrefabAsset(prefabObject, PrefabAssetPath);
+        GameObject.DestroyImmediate(prefabObject);
     }
 }

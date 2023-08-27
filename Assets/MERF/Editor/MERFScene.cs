@@ -1,6 +1,7 @@
 using System;
 
 public enum MERFScene {
+    Custom = -1,
     Gardenvase,
     Bicycle,
     KitchenLego,
@@ -13,8 +14,12 @@ public enum MERFScene {
 
 public static class MERFSceneExtensions {
 
-    public static string String(this MERFScene scene) {
+    public static string LowerCaseName(this MERFScene scene) {
         return scene.ToString().ToLower();
+    }
+
+    public static string Name(this MERFScene scene) {
+        return scene.ToString();
     }
 
     public static MERFScene ToEnum(string value) {
