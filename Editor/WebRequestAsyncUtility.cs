@@ -3,11 +3,8 @@ using Newtonsoft.Json;
 using UnityEngine.Networking;
 using System;
 using System.Threading.Tasks;
-using System.Text;
 
 namespace MERF.Editor {
-
-    public enum HTTPVerb { GET, POST };
 
     public static class WebRequestAsyncUtility {
 
@@ -18,8 +15,8 @@ namespace MERF.Editor {
             /// object of type <typeparamref name="T"/> and is automatically being deserialized and returned.
             /// </summary>
             /// <typeparam name="T">the type that this web request returns.</typeparam>
-            public static async Task<T> SendWebRequestAsync(Uri url, HTTPVerb verb = HTTPVerb.GET, string postData = null, params Tuple<string, string>[] requestHeaders) {
-                UnityWebRequest wr = GetRequest(url, verb, postData, requestHeaders);
+            public static async Task<T> SendWebRequestAsync(Uri url) {
+                UnityWebRequest wr = UnityWebRequest.Get(url);
                 if (wr == null) {
                     return default;
                 }
@@ -59,8 +56,8 @@ namespace MERF.Editor {
         /// </summary>
         public class WebRequestSimpleAsync {
 
-            public static async Task<string> SendWebRequestAsync(Uri url, HTTPVerb verb = HTTPVerb.GET, string postData = null, params Tuple<string, string>[] requestHeaders) {
-                UnityWebRequest wr = GetRequest(url, verb, postData, requestHeaders);
+            public static async Task<string> SendWebRequestAsync(Uri url) {
+                UnityWebRequest wr = UnityWebRequest.Get(url);
                 if (wr == null) {
                     return default;
                 }
@@ -100,8 +97,8 @@ namespace MERF.Editor {
         /// </summary>
         public class WebRequestBinaryAsync {
 
-            public static async Task<byte[]> SendWebRequestAsync(Uri url, HTTPVerb verb = HTTPVerb.GET, string postData = null, params Tuple<string, string>[] requestHeaders) {
-                UnityWebRequest wr = GetRequest(url, verb, postData, requestHeaders);
+            public static async Task<byte[]> SendWebRequestAsync(Uri url) {
+                UnityWebRequest wr = UnityWebRequest.Get(url);
                 if (wr == null) {
                     return default;
                 }
@@ -136,33 +133,45 @@ namespace MERF.Editor {
             }
         }
 
-        private static UnityWebRequest GetRequest(Uri url, HTTPVerb verb, string postData, params Tuple<string, string>[] requestHeaders) {
-            UnityWebRequest webRequest;
+        /// <summary>
+        /// WebRequest for texture data.
+        /// </summary>
+        public class WebRequestTextureAsync {
 
-            switch (verb) {
-                case HTTPVerb.GET:
-                    webRequest = UnityWebRequest.Get(url);
-                    break;
-                case HTTPVerb.POST:
-                    webRequest = UnityWebRequest.Post(url, postData);
-                    byte[] rawBody = Encoding.UTF8.GetBytes(postData);
-                    webRequest.uploadHandler = new UploadHandlerRaw(rawBody);
-                    webRequest.downloadHandler = new DownloadHandlerBuffer();
-                    webRequest.SetRequestHeader("Content-Type", "application/json");
-                    break;
-                default:
-                    Debug.LogError("Invalid HTTP request method.");
-                    return null;
-            }
-
-            // set optional headers
-            if (requestHeaders != null) {
-                foreach (var header in requestHeaders) {
-                    webRequest.SetRequestHeader(header.Item1, header.Item2);
+            public static async Task<Texture2D> SendWebRequestAsync(string url) {
+                UnityWebRequest wr = UnityWebRequestTexture.GetTexture(url);
+                if (wr == null) {
+                    return default;
                 }
-            }
 
-            return webRequest;
+                try {
+                    var asyncOp = wr.SendWebRequest();
+                    while (!asyncOp.webRequest.isDone) {
+                        await Task.Yield();
+                    }
+
+                    switch (asyncOp.webRequest.result) {
+                        case UnityWebRequest.Result.InProgress:
+                            break;
+                        case UnityWebRequest.Result.Success:
+                            return DownloadHandlerTexture.GetContent(asyncOp.webRequest);
+                        case UnityWebRequest.Result.ConnectionError:
+                        case UnityWebRequest.Result.ProtocolError:
+                        case UnityWebRequest.Result.DataProcessingError:
+                            Debug.LogError($"{asyncOp.webRequest.result}: {asyncOp.webRequest.error}\nURL: {asyncOp.webRequest.url}");
+                            Debug.LogError($"{asyncOp.webRequest.downloadHandler.text}");
+                            break;
+                        default:
+                            break;
+                    }
+
+                } catch (Exception e) {
+                    Debug.LogError(e);
+                } finally {
+                    wr.Dispose();
+                }
+                return default;
+            }
         }
     }
 }
