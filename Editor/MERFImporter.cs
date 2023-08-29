@@ -94,7 +94,6 @@ namespace MERF.Editor {
         private static string AtlasTextureAssetPath => GetAssetPath("Textures", $"{_context.SceneName} Atlas Index Texture.asset");
         private static string ShaderAssetPath => GetAssetPath("Shaders", $"RayMarchShader_{_context.SceneName}.shader");
         private static string MaterialAssetPath => GetAssetPath("Materials", $"Material_{_context.SceneName}.mat");
-        private static string WeightsAssetPath(int i) => GetAssetPath("SceneParams", $"weightsTex{i}.asset");
         private static string PrefabAssetPath => GetAssetPath("", $"{_context.SceneName}.prefab");
 
         /// <summary>
@@ -113,6 +112,7 @@ namespace MERF.Editor {
         private static string RGBVolumeCachePath(int i) => GetCachePath($"rgba_{i:D3}.png");
         private static string FeatureVolumeCachePath(int i) => GetCachePath($"feature_{i:D3}.png");
         private static string SceneUrlsCachePath => GetCachePath($"{_context.SceneName}.json");
+        private static string SceneParamsCachePath => GetCachePath($"{_context.SceneName}_scene_params.json");
 
 
         /// <summary>
@@ -267,6 +267,7 @@ namespace MERF.Editor {
         private static async Task<SceneParams> DownloadSceneParamsAsync(MERFSources sceneUrls) {
             Uri url = sceneUrls.Get("scene_params.json");
             string sceneParamsJson = await WebRequestSimpleAsync.SendWebRequestAsync(url);
+            File.WriteAllText(SceneParamsCachePath, sceneParamsJson);
             TextAsset mlpJsonTextAsset = new TextAsset(sceneParamsJson);
             CreateAsset(mlpJsonTextAsset, SceneParamsAssetPath);
 
@@ -605,18 +606,18 @@ namespace MERF.Editor {
 
         private static void CreateRGBAndDensityVolumeTexture(Texture2D[] rgbImages, SceneParams sceneParams) {
             Debug.Assert(rgbImages.Length == sceneParams.NumSlices);
-            int volumeWidth = sceneParams.AtlasWidth;
+            int volumeWidth  = sceneParams.AtlasWidth;
             int volumeHeight = sceneParams.AtlasHeight;
-            int volumeDepth = sceneParams.AtlasDepth;
+            int volumeDepth  = sceneParams.AtlasDepth;
 
-            int sliceDepth = sceneParams.SliceDepth;                    // slices packed into one atlased texture
-            int numSlices = sceneParams.NumSlices;                     // number of slice atlases
-            int ppAtlas = volumeWidth * volumeHeight * sliceDepth;   // pixels per atlased texture
-            int ppSlice = volumeWidth * volumeHeight;                // pixels per volume slice
+            int sliceDepth = sceneParams.SliceDepth;                  // slices packed into one atlased texture
+            int numSlices  = sceneParams.NumSlices;                   // number of slice atlases
+            int ppAtlas    = volumeWidth * volumeHeight * sliceDepth; // pixels per atlased texture
+            int ppSlice    = volumeWidth * volumeHeight;              // pixels per volume slice
 
-            Texture3D rgbVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.RGB24, FilterMode.Bilinear);
+            Texture3D rgbVolumeTexture     = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.RGB24, FilterMode.Bilinear);
             Texture3D densityVolumeTexture = CreateVolumeTexture(volumeWidth, volumeHeight, volumeDepth, TextureFormat.R8, FilterMode.Bilinear);
-            NativeArray<byte> rgbPixels = rgbVolumeTexture.GetPixelData<byte>(0);
+            NativeArray<byte> rgbPixels    = rgbVolumeTexture.GetPixelData<byte>(0);
             NativeArray<byte> densityPixels = densityVolumeTexture.GetPixelData<byte>(0);
 
             for (int i = 0; i < numSlices; i++) {
@@ -631,10 +632,10 @@ namespace MERF.Editor {
                     int baseIndexRGB = (i * ppAtlas + s * ppSlice) * 3;
                     int baseIndexAlpha = (i * ppAtlas + s * ppSlice);
                     for (int j = 0; j < ppSlice; j++) {
-                        rgbPixels[baseIndexRGB + (j * 3)] = rgbaImage[((s_r * ppSlice + j) * 4) + 1];
+                        rgbPixels[baseIndexRGB + (j * 3)]     = rgbaImage[((s_r * ppSlice + j) * 4) + 1];
                         rgbPixels[baseIndexRGB + (j * 3) + 1] = rgbaImage[((s_r * ppSlice + j) * 4) + 2];
                         rgbPixels[baseIndexRGB + (j * 3) + 2] = rgbaImage[((s_r * ppSlice + j) * 4) + 3];
-                        densityPixels[baseIndexAlpha + j] = rgbaImage[((s_r * ppSlice + j) * 4)];
+                        densityPixels[baseIndexAlpha + j]     = rgbaImage[((s_r * ppSlice + j) * 4)];
                     }
                 }
             }
@@ -909,28 +910,8 @@ namespace MERF.Editor {
             _context.Shader = shader;
         }
 
-        /// <summary>
-        /// Upload networks weights into textures (biases are written into as
-        /// compile-time constants into the shader)
-        /// </summary>
-        private static void CreateWeightTextures(SceneParams sceneParams) {
-            Texture2D weightsTexZero = CreateNetworkWeightTexture(sceneParams._0Weights);
-            Texture2D weightsTexOne = CreateNetworkWeightTexture(sceneParams._1Weights);
-            Texture2D weightsTexTwo = CreateNetworkWeightTexture(sceneParams._2Weights);
-
-            CreateAsset(weightsTexZero, WeightsAssetPath(0));
-            CreateAsset(weightsTexOne, WeightsAssetPath(1));
-            CreateAsset(weightsTexTwo, WeightsAssetPath(2));
-            AssetDatabase.SaveAssets();
-
-            _context.WeightsTexZero = weightsTexZero;
-            _context.WeightsTexOne = weightsTexOne;
-            _context.WeightsTexTwo = weightsTexTwo;
-        }
-
         private static void CreateMaterial(SceneParams sceneParams) {
             CreateRayMarchShader(sceneParams);
-            CreateWeightTextures(sceneParams);
 
             string materialAssetPath = MaterialAssetPath;
             Shader raymarchShader = _context.Shader;
@@ -953,24 +934,6 @@ namespace MERF.Editor {
             material.SetVector("_GridSizeOccupancy_L1", _context.OccupancyGridSizes[3]);
             material.SetVector("_GridSizeOccupancy_L0", _context.OccupancyGridSizes[4]);
             material.SetInteger("_DisplayMode", 1); // make diffuse default for now, view-dependent not working yet
-            material.SetTexture("_WeightsZero", _context.WeightsTexZero);
-            material.SetTexture("_WeightsOne", _context.WeightsTexOne);
-            material.SetTexture("_WeightsTwo", _context.WeightsTexTwo);
-
-            float[][] m = sceneParams.WorldspaceTOpengl;
-            Matrix4x4 worldspaceTOpengl = new Matrix4x4 {
-                m00 = m[0][0],
-                m01 = m[0][1],
-                m02 = m[0][2],
-                m10 = m[1][0],
-                m11 = m[1][1],
-                m12 = m[1][2],
-                m20 = m[2][0],
-                m21 = m[2][1],
-                m22 = m[2][2]
-            };
-            material.SetMatrix("_Worldspace_T_opengl", worldspaceTOpengl);
-
             material.SetVector("_MinPosition", new Vector4(
                 (float)sceneParams.MinX,
                 (float)sceneParams.MinY,

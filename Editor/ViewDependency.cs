@@ -2,19 +2,17 @@ using System.Text.RegularExpressions;
 using Unity.Collections;
 using UnityEngine;
 using System.Text;
+using System;
 
 namespace MERF.Editor {
 
     public static class ViewDependency {
 
-        /// <summary>
-        /// Creates a float32 data texture containing MLP weights.
-        /// </summary>
-        public static Texture2D CreateNetworkWeightTexture(double[][] network_weights) {
+        private static float[] GetNetworkWeights(double[][] network_weights) {
             int width = network_weights.Length;
             int height = network_weights[0].Length;
 
-            NativeArray<float> weightsData = new NativeArray<float>(width * height, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            float[] weightsData = new float[width * height];
             for (int co = 0; co < height; co++) {
                 for (int ci = 0; ci < width; ci++) {
                     int index = co * width + ci;
@@ -23,7 +21,7 @@ namespace MERF.Editor {
                 }
             }
 
-            NativeArray<float> weightsDataNew = new NativeArray<float>(width * height, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            float[] weightsDataNew = new float[width * height];
             for (int j = 0; j < width; j += 4) {
                 for (int i = 0; i < height; i++) {
                     for (int c = 0; c < 4; c++) {
@@ -32,18 +30,21 @@ namespace MERF.Editor {
                 }
             }
 
-            Texture2D texture = new Texture2D(1, width * height / 4, TextureFormat.RGBA32, mipChain: false, linear: true) {
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
+            return weightsDataNew;
+        }
 
-            texture.SetPixelData(weightsDataNew, 0);
-            texture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-
-            weightsData.Dispose();
-            weightsDataNew.Dispose();
-
-            return texture;
+        private static void FlipY<T>(Texture2D texture) where T : struct {
+            int width = texture.width;
+            int height = texture.height;
+            NativeArray<T> data = texture.GetPixelData<T>(0);
+            for (int y = 0; y < height / 2; y++) {
+                for (int x = 0; x < width; x++) {
+                    int flippedY = height - y - 1;
+                    int source = (flippedY * width) + x;
+                    int target = (y * width) + x;
+                    (data[target], data[source]) = (data[source], data[target]);
+                }
+            }
         }
 
         /// <summary>
@@ -86,45 +87,62 @@ namespace MERF.Editor {
             SceneParams network_weights = sceneParams;
 
             // Write bias values as compile-time constants.
-            string fragmentShaderSource = RaymarchShader.ViewDependenceNetworkShaderFunctions;
+            string fragShader = RaymarchShader.ViewDependenceNetworkShaderFunctions;
 
             for (int layerIndex = 0; layerIndex < 3; layerIndex++) {
-                StringBuilder biasList = ToBiasList(network_weights.GetBias(layerIndex));
-                fragmentShaderSource = new Regex("BIAS_LIST_" + layerIndex).Replace(fragmentShaderSource, $"{biasList}");
+                StringBuilder biasList = toConstructorList(network_weights.GetBias(layerIndex));
+                fragShader = new Regex("BIAS_LIST_" + layerIndex).Replace(fragShader, $"{biasList}");
             }
 
-            int channelsZero = network_weights._0Weights.Length;
-            int channelsOne = network_weights._0Bias.Length;
-            int channelsTwo = network_weights._1Bias.Length;
-            int channelsThree = network_weights._2Bias.Length;
-            int posEncScales = 4;
+            float[] weights0 = GetNetworkWeights(sceneParams._0Weights);
+            float[] weights1 = GetNetworkWeights(sceneParams._1Weights);
+            float[] weights2 = GetNetworkWeights(sceneParams._2Weights);
 
-            fragmentShaderSource = new Regex("NUM_CHANNELS_ZERO").Replace(fragmentShaderSource, $"{channelsZero}");
-            fragmentShaderSource = new Regex("NUM_POSENC_SCALES").Replace(fragmentShaderSource, $"{posEncScales}");
-            fragmentShaderSource = new Regex("NUM_CHANNELS_ONE").Replace(fragmentShaderSource, $"{channelsOne}");
-            fragmentShaderSource = new Regex("NUM_CHANNELS_TWO").Replace(fragmentShaderSource, $"{channelsTwo}");
-            fragmentShaderSource = new Regex("NUM_CHANNELS_THREE").Replace(fragmentShaderSource, $"{channelsThree}");
+            for (int i = 0; i < sceneParams._0Weights.Length; i++) {
+                int stride = sceneParams._0Weights[0].Length;
+                float[] subArray = weights0.SubArray(i * stride, stride);
+                fragShader = new Regex($"__W0_{i}__").Replace(fragShader, $"{toConstructorList(subArray)}");
+            }
+            for (int i = 0; i < sceneParams._1Weights.Length; i++) {
+                int stride = sceneParams._1Weights[0].Length;
+                float[] subArray = weights1.SubArray(i * stride, stride);
+                fragShader = new Regex($"__W1_{i}__").Replace(fragShader, $"{toConstructorList(subArray)}");
+            }
+            for (int i = 0; i < sceneParams._2Weights.Length; i++) {
+                int stride = sceneParams._2Weights[0].Length;
+                float[] subArray = weights2.SubArray(i * stride, stride);
+                fragShader = new Regex($"__W2_{i}__").Replace(fragShader, $"{toConstructorList(subArray)}");
+            }
 
-            return fragmentShaderSource;
+            return fragShader;
         }
 
-        private static StringBuilder ToBiasList(double[] biases) {
+        private static StringBuilder toConstructorList(double[] values) {
             System.Globalization.CultureInfo culture = System.Globalization.CultureInfo.InvariantCulture;
-            int width = biases.Length;
-            StringBuilder biasList = new StringBuilder(width * 12);
-            biasList.Append("float4(");
+            int width = values.Length;
+            StringBuilder output = new StringBuilder(width * 12);
             for (int i = 0; i < width; i++) {
-                double bias = biases[i];
-                if (i % 4 == 0 && i != 0 && i != width - 1) {
-                    biasList.Append("), float4(");
-                }
-                biasList.Append(bias.ToString("F7", culture));
-                if (i + 1 < width && (i + 1) % 4 != 0) {
-                    biasList.Append(", ");
+                double value = values[i];
+                output.Append(value.ToString("F7", culture));
+                if (i + 1 < width) {
+                    output.Append(", ");
                 }
             }
-            biasList.Append(")");
-            return biasList;
+            return output;
+        }
+
+        private static StringBuilder toConstructorList(float[] values) {
+            System.Globalization.CultureInfo culture = System.Globalization.CultureInfo.InvariantCulture;
+            int width = values.Length;
+            StringBuilder output = new StringBuilder(width * 12);
+            for (int i = 0; i < width; i++) {
+                double value = values[i];
+                output.Append(value.ToString("F7", culture));
+                if (i + 1 < width) {
+                    output.Append(", ");
+                }
+            }
+            return output;
         }
 
         private static int MakeMultipleOf(int x, int y) {
@@ -133,6 +151,11 @@ namespace MERF.Editor {
             } else {
                 return x + y - x % y;
             }
+        }
+        private static T[] SubArray<T>(this T[] array, int offset, int length) {
+            T[] result = new T[length];
+            Array.Copy(array, offset, result, 0, length);
+            return result;
         }
     }
 }

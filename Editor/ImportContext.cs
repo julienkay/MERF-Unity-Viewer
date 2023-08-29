@@ -53,9 +53,6 @@ namespace MERF.Editor {
         public Vector4[] OccupancyGridSizes;
         public double[] OccupancyVoxelSizes;
         public Shader Shader;
-        public Texture2D WeightsTexZero;
-        public Texture2D WeightsTexOne;
-        public Texture2D WeightsTexTwo;
         public Material Material;
         public Texture3D DensityVolumeTexture;
         public Texture3D RGBVolumeTexture;

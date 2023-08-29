@@ -24,9 +24,6 @@ namespace MERF.Editor {
         _GridSizeOccupancy_L1  (""GridSizeOccupancy L1""   , Vector ) = (0, 0, 0, 0)
         _GridSizeOccupancy_L0  (""GridSizeOccupancy L0""   , Vector ) = (0, 0, 0, 0)
         _DisplayMode           (""Display Mode""           , Integer) = 0
-        _WeightsZero           (""Weights Zero""           , 2D     ) = ""white"" {}
-        _WeightsOne            (""Weights One""            , 2D     ) = ""white"" {}
-        _WeightsTwo            (""Weights Two""            , 2D     ) = ""white"" {}
 	    _MinPosition           (""Min Position""           , Vector ) = (0, 0, 0, 0)
         _StepMult              (""Step Multiplier""        , Integer) = 1
                                                            
@@ -83,10 +80,6 @@ namespace MERF.Editor {
             float4 _GridSizeOccupancy_L2;
             float4 _GridSizeOccupancy_L3;
             float4 _GridSizeOccupancy_L4;
-
-            UNITY_DECLARE_TEX2D(_WeightsZero);
-            UNITY_DECLARE_TEX2D(_WeightsOne);
-            UNITY_DECLARE_TEX2D(_WeightsTwo);
 
             int _StepMult;
             float3 _GridSize;
@@ -166,437 +159,121 @@ namespace MERF.Editor {
                 return sin(coordinate);
             }
 
-            float indexToInputValue(float3 color, float4 features, float3 viewdir, int j) {
-                float input_value = 0.0;
-                if (j < 3) {
-                    input_value =
-                        (j == 0) ? color.r : (
-                        (j == 1) ? color.g : color.b);
-                } else if (j < 7) {
-                    input_value =
-                        (j == 3) ? features.r : (
-                        (j == 4) ? features.g : (
-                        (j == 5) ? features.b : features.a));
-                } else {
-                    input_value = indexToPosEnc(viewdir, j - 7);
-                }
-                if (abs(input_value) < 0.1 / 255.0) {
-                    input_value = 0.0;
-                }
-                return input_value;
-            }
-
-            float4 relu(float4 x) {
-                return max(x, 0.0);
-            }
-
-            float3 evaluateNetwork(float3 color, float4 features, float3 viewdir) {
-                float4 intermediate_one[NUM_CHANNELS_ONE/4] = {
-                    BIAS_LIST_0
-                };
+            float3 evaluateNetwork(float3 color, float4 features, float3 viewdir0) {
+                fixed3 viewdir1 = viewdir0 * 2;
+                fixed3 viewdir2 = viewdir0 * 4;
+                fixed3 viewdir3 = viewdir0 * 8;                
+                float4x4 intermediate_one = { BIAS_LIST_0 };
 
                 float4 inp;
-                float4x4 w;
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 0),
-                    indexToInputValue(color, features, viewdir, 1),
-                    indexToInputValue(color, features, viewdir, 2),
-                    indexToInputValue(color, features, viewdir, 3));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 0, 0)),
-                    _WeightsZero.Load(int3(0, 1, 0)),
-                    _WeightsZero.Load(int3(0, 2, 0)),
-                    _WeightsZero.Load(int3(0, 3, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 4, 0)),
-                    _WeightsZero.Load(int3(0, 5, 0)),
-                    _WeightsZero.Load(int3(0, 6, 0)),
-                    _WeightsZero.Load(int3(0, 7, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 8, 0)),
-                    _WeightsZero.Load(int3(0, 9, 0)),
-                    _WeightsZero.Load(int3(0, 10, 0)),
-                    _WeightsZero.Load(int3(0, 11, 0))
-                    );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 12, 0)),
-                    _WeightsZero.Load(int3(0, 13, 0)),
-                    _WeightsZero.Load(int3(0, 14, 0)),
-                    _WeightsZero.Load(int3(0, 15, 0))
-                    );
-                intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 4),
-                    indexToInputValue(color, features, viewdir, 5),
-                    indexToInputValue(color, features, viewdir, 6),
-                    indexToInputValue(color, features, viewdir, 7));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 16, 0)),
-                    _WeightsZero.Load(int3(0, 17, 0)),
-                    _WeightsZero.Load(int3(0, 18, 0)),
-                    _WeightsZero.Load(int3(0, 19, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 20, 0)),
-                    _WeightsZero.Load(int3(0, 21, 0)),
-                    _WeightsZero.Load(int3(0, 22, 0)),
-                    _WeightsZero.Load(int3(0, 23, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 24, 0)),
-                    _WeightsZero.Load(int3(0, 25, 0)),
-                    _WeightsZero.Load(int3(0, 26, 0)),
-                    _WeightsZero.Load(int3(0, 27, 0))
-                    );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 28, 0)),
-                    _WeightsZero.Load(int3(0, 29, 0)),
-                    _WeightsZero.Load(int3(0, 30, 0)),
-                    _WeightsZero.Load(int3(0, 31, 0))
-                    );
-                intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 8),
-                    indexToInputValue(color, features, viewdir, 9),
-                    indexToInputValue(color, features, viewdir, 10),
-                    indexToInputValue(color, features, viewdir, 11));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 32, 0)),
-                    _WeightsZero.Load(int3(0, 33, 0)),
-                    _WeightsZero.Load(int3(0, 34, 0)),
-                    _WeightsZero.Load(int3(0, 35, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 36, 0)),
-                    _WeightsZero.Load(int3(0, 37, 0)),
-                    _WeightsZero.Load(int3(0, 38, 0)),
-                    _WeightsZero.Load(int3(0, 39, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 40, 0)),
-                    _WeightsZero.Load(int3(0, 41, 0)),
-                    _WeightsZero.Load(int3(0, 42, 0)),
-                    _WeightsZero.Load(int3(0, 43, 0))
-                    );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 44, 0)),
-                    _WeightsZero.Load(int3(0, 45, 0)),
-                    _WeightsZero.Load(int3(0, 46, 0)),
-                    _WeightsZero.Load(int3(0, 47, 0))
-                    );
-                intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 12),
-                    indexToInputValue(color, features, viewdir, 13),
-                    indexToInputValue(color, features, viewdir, 14),
-                    indexToInputValue(color, features, viewdir, 15));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 48, 0)),
-                    _WeightsZero.Load(int3(0, 49, 0)),
-                    _WeightsZero.Load(int3(0, 50, 0)),
-                    _WeightsZero.Load(int3(0, 51, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 52, 0)),
-                    _WeightsZero.Load(int3(0, 53, 0)),
-                    _WeightsZero.Load(int3(0, 54, 0)),
-                    _WeightsZero.Load(int3(0, 55, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 56, 0)),
-                    _WeightsZero.Load(int3(0, 57, 0)),
-                    _WeightsZero.Load(int3(0, 58, 0)),
-                    _WeightsZero.Load(int3(0, 59, 0))
-                    );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 60, 0)),
-                    _WeightsZero.Load(int3(0, 61, 0)),
-                    _WeightsZero.Load(int3(0, 62, 0)),
-                    _WeightsZero.Load(int3(0, 63, 0))
-                    );
-                intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 16),
-                    indexToInputValue(color, features, viewdir, 17),
-                    indexToInputValue(color, features, viewdir, 18),
-                    indexToInputValue(color, features, viewdir, 19));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 64, 0)),
-                    _WeightsZero.Load(int3(0, 65, 0)),
-                    _WeightsZero.Load(int3(0, 66, 0)),
-                    _WeightsZero.Load(int3(0, 67, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 68, 0)),
-                    _WeightsZero.Load(int3(0, 69, 0)),
-                    _WeightsZero.Load(int3(0, 70, 0)),
-                    _WeightsZero.Load(int3(0, 71, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 72, 0)),
-                    _WeightsZero.Load(int3(0, 73, 0)),
-                    _WeightsZero.Load(int3(0, 74, 0)),
-                    _WeightsZero.Load(int3(0, 75, 0))
-                    );
-                    intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 76, 0)),
-                    _WeightsZero.Load(int3(0, 77, 0)),
-                    _WeightsZero.Load(int3(0, 78, 0)),
-                    _WeightsZero.Load(int3(0, 79, 0))
-                    );
-                    intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 20),
-                    indexToInputValue(color, features, viewdir, 21),
-                    indexToInputValue(color, features, viewdir, 22),
-                    indexToInputValue(color, features, viewdir, 23));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 80, 0)),
-                    _WeightsZero.Load(int3(0, 81, 0)),
-                    _WeightsZero.Load(int3(0, 82, 0)),
-                    _WeightsZero.Load(int3(0, 83, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 84, 0)),
-                    _WeightsZero.Load(int3(0, 85, 0)),
-                    _WeightsZero.Load(int3(0, 86, 0)),
-                    _WeightsZero.Load(int3(0, 87, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 88, 0)),
-                    _WeightsZero.Load(int3(0, 89, 0)),
-                    _WeightsZero.Load(int3(0, 90, 0)),
-                    _WeightsZero.Load(int3(0, 91, 0))
-                    );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 92, 0)),
-                    _WeightsZero.Load(int3(0, 93, 0)),
-                    _WeightsZero.Load(int3(0, 94, 0)),
-                    _WeightsZero.Load(int3(0, 95, 0))
-                    );
-                intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 24),
-                    indexToInputValue(color, features, viewdir, 25),
-                    indexToInputValue(color, features, viewdir, 26),
-                    indexToInputValue(color, features, viewdir, 27));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 96, 0)),
-                    _WeightsZero.Load(int3(0, 97, 0)),
-                    _WeightsZero.Load(int3(0, 98, 0)),
-                    _WeightsZero.Load(int3(0, 99, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 100, 0)),
-                    _WeightsZero.Load(int3(0, 101, 0)),
-                    _WeightsZero.Load(int3(0, 102, 0)),
-                    _WeightsZero.Load(int3(0, 103, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 104, 0)),
-                    _WeightsZero.Load(int3(0, 105, 0)),
-                    _WeightsZero.Load(int3(0, 106, 0)),
-                    _WeightsZero.Load(int3(0, 107, 0))
-                    );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 108, 0)),
-                    _WeightsZero.Load(int3(0, 109, 0)),
-                    _WeightsZero.Load(int3(0, 110, 0)),
-                    _WeightsZero.Load(int3(0, 111, 0))
-                    );
-                intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 28),
-                    indexToInputValue(color, features, viewdir, 29),
-                    indexToInputValue(color, features, viewdir, 30),
-                    indexToInputValue(color, features, viewdir, 31));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 112, 0)),
-                    _WeightsZero.Load(int3(0, 113, 0)),
-                    _WeightsZero.Load(int3(0, 114, 0)),
-                    _WeightsZero.Load(int3(0, 115, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 116, 0)),
-                    _WeightsZero.Load(int3(0, 117, 0)),
-                    _WeightsZero.Load(int3(0, 118, 0)),
-                    _WeightsZero.Load(int3(0, 119, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 120, 0)),
-                    _WeightsZero.Load(int3(0, 121, 0)),
-                    _WeightsZero.Load(int3(0, 122, 0)),
-                    _WeightsZero.Load(int3(0, 123, 0))
-                    );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 124, 0)),
-                    _WeightsZero.Load(int3(0, 125, 0)),
-                    _WeightsZero.Load(int3(0, 126, 0)),
-                    _WeightsZero.Load(int3(0, 127, 0))
-                    );
-                intermediate_one[3] += mul(inp, w);
-
-                inp = float4(
-                    indexToInputValue(color, features, viewdir, 32),
-                    indexToInputValue(color, features, viewdir, 33),
-                    indexToInputValue(color, features, viewdir, 34),
-                    indexToInputValue(color, features, viewdir, 35));
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 128, 0)),
-                    _WeightsZero.Load(int3(0, 129, 0)),
-                    _WeightsZero.Load(int3(0, 130, 0)),
-                    _WeightsZero.Load(int3(0, 131, 0))
-                    );
-                intermediate_one[0] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 132, 0)),
-                    _WeightsZero.Load(int3(0, 133, 0)),
-                    _WeightsZero.Load(int3(0, 134, 0)),
-                    _WeightsZero.Load(int3(0, 135, 0))
-                    );
-                intermediate_one[1] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 136, 0)),
-                    _WeightsZero.Load(int3(0, 137, 0)),
-                    _WeightsZero.Load(int3(0, 138, 0)),
-                    _WeightsZero.Load(int3(0, 139, 0))
-                );
-                intermediate_one[2] += mul(inp, w);
-
-
-                w = float4x4(
-                    _WeightsZero.Load(int3(0, 140, 0)),
-                    _WeightsZero.Load(int3(0, 141, 0)),
-                    _WeightsZero.Load(int3(0, 142, 0)),
-                    _WeightsZero.Load(int3(0, 143, 0))
-                );
-                intermediate_one[3] += mul(inp, w);
-
-
-                float4 intermediate_two[NUM_CHANNELS_TWO/4] = {
-                    BIAS_LIST_1
-                };
-                int j = 0;
-                for (j = 0; j < NUM_CHANNELS_ONE/4; ++j) {
-                    inp = relu(intermediate_one[j]);
-                    for (int i = 0; i < NUM_CHANNELS_TWO; i += 4) {
-                    w = float4x4(
-                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + i, 0)),
-                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + (i+1), 0)),
-                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + (i+2), 0)),
-                        _WeightsOne.Load(int3(0, j * NUM_CHANNELS_TWO + (i+3), 0))
-                    );
-                    intermediate_two[i/4] += mul(inp, w);
-                    }
-                }
-
-                float4 result = BIAS_LIST_2;
-                for (j = 0; j < NUM_CHANNELS_TWO/4; ++j) {
-                    inp = relu(intermediate_two[j]);
-                    w = float4x4(
-                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE, 0)),
-                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE + 1, 0)),
-                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE + 2, 0)),
-                        _WeightsTwo.Load(int3(0, j * NUM_CHANNELS_THREE + 3, 0))
-                    );
-                    result.xyz += (mul(inp, w)).xyz;
-                }
-                return 1.0 / (1.0 + exp(-result.xyz)); // Sigmoid
+
+                inp = float4(color.rgb, features.r);
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_0__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_1__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_2__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_3__));
+
+                inp = float4(features.gba, viewdir0.x);
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_4__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_5__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_6__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_7__));
+
+                inp = float4(viewdir0.y, viewdir0.z, sin(viewdir0.x), sin(viewdir0.y));
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_8__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_9__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_10__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_11__));
+
+                inp = float4(sin(viewdir0.z), sin(viewdir1.x), sin(viewdir1.y), sin(viewdir1.z));
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_12__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_13__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_14__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_15__));
+
+                inp = float4(sin(viewdir2.x), sin(viewdir2.y), sin(viewdir2.z), sin(viewdir3.x));
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_16__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_17__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_18__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_19__));
+
+                inp = float4(sin(viewdir3.y), sin(viewdir3.z), cos(viewdir0.x), cos(viewdir0.y));
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_20__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_21__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_22__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_23__));
+
+                inp = float4(cos(viewdir0.z), cos(viewdir1.x), cos(viewdir1.y), cos(viewdir1.z));
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_24__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_25__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_26__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_27__));
+
+                inp = float4(cos(viewdir2.x), cos(viewdir2.y), cos(viewdir2.z), cos(viewdir3.x));
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_28__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_29__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_30__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_31__));
+
+                inp = float4(cos(viewdir3.y), cos(viewdir3.z), cos(viewdir0.x), cos(viewdir0.y));
+
+                intermediate_one[0] += mul(inp, float4x4(__W0_32__));
+                intermediate_one[1] += mul(inp, float4x4(__W0_33__));
+                intermediate_one[2] += mul(inp, float4x4(__W0_34__));
+                intermediate_one[3] += mul(inp, float4x4(__W0_35__));
+
+                // relu
+                intermediate_one = max(intermediate_one, 0.0);
+
+                float4x4 intermediate_two = { BIAS_LIST_1 };
+                intermediate_two += intermediate_one[0][0] * float4x4(__W1_0__);
+                intermediate_two += intermediate_one[0][1] * float4x4(__W1_1__);
+                intermediate_two += intermediate_one[0][2] * float4x4(__W1_2__);
+                intermediate_two += intermediate_one[0][3] * float4x4(__W1_3__);
+                intermediate_two += intermediate_one[1][0] * float4x4(__W1_4__);
+                intermediate_two += intermediate_one[1][1] * float4x4(__W1_5__);
+                intermediate_two += intermediate_one[1][2] * float4x4(__W1_6__);
+                intermediate_two += intermediate_one[1][3] * float4x4(__W1_7__);
+                intermediate_two += intermediate_one[2][0] * float4x4(__W1_8__);
+                intermediate_two += intermediate_one[2][1] * float4x4(__W1_9__);
+                intermediate_two += intermediate_one[2][2] * float4x4(__W1_10__);
+                intermediate_two += intermediate_one[2][3] * float4x4(__W1_11__);
+                intermediate_two += intermediate_one[3][0] * float4x4(__W1_12__);
+                intermediate_two += intermediate_one[3][1] * float4x4(__W1_13__);
+                intermediate_two += intermediate_one[3][2] * float4x4(__W1_14__);
+                intermediate_two += intermediate_one[3][3] * float4x4(__W1_15__);
+
+                // relu
+                intermediate_two = max(intermediate_one, 0.0);
+
+                float4 result = float4(BIAS_LIST_2);
+                result.xyz += (intermediate_two[0][0] * float4(__W2_0__)).xyz;
+                result.xyz += (intermediate_two[0][1] * float4(__W2_1__)).xyz;
+                result.xyz += (intermediate_two[0][2] * float4(__W2_2__)).xyz;
+                result.xyz += (intermediate_two[0][3] * float4(__W2_3__)).xyz;
+                result.xyz += (intermediate_two[1][0] * float4(__W2_4__)).xyz;
+                result.xyz += (intermediate_two[1][1] * float4(__W2_5__)).xyz;
+                result.xyz += (intermediate_two[1][2] * float4(__W2_6__)).xyz;
+                result.xyz += (intermediate_two[1][3] * float4(__W2_7__)).xyz;
+                result.xyz += (intermediate_two[2][0] * float4(__W2_8__)).xyz;
+                result.xyz += (intermediate_two[2][1] * float4(__W2_9__)).xyz;
+                result.xyz += (intermediate_two[2][2] * float4(__W2_10__)).xyz;
+                result.xyz += (intermediate_two[2][3] * float4(__W2_11__)).xyz;
+                result.xyz += (intermediate_two[3][0] * float4(__W2_12__)).xyz;
+                result.xyz += (intermediate_two[3][1] * float4(__W2_13__)).xyz;
+                result.xyz += (intermediate_two[3][2] * float4(__W2_14__)).xyz;
+                result.xyz += (intermediate_two[3][3] * float4(__W2_15__)).xyz;
+
+                // sigmoid
+                return 1.0 / (1.0 + exp(-result.xyz));
             }
 ";
 
@@ -1264,12 +941,18 @@ namespace MERF.Editor {
 
               // Composite on white background
               accumulatedColor = float3(1.0, 1.0, 1.0) * visibility + accumulatedColor;
+            
+              i.direction.xz = -i.direction.xz;
+              i.direction.yz = i.direction.zy;
 
               // Run view-dependency network
               if ((_DisplayMode == DISPLAY_NORMAL ||
                    _DisplayMode == DISPLAY_VIEW_DEPENDENT)) {
-                accumulatedColor += evaluateNetwork(accumulatedColor, accumulatedFeatures,
-                                         mul(_Worldspace_T_opengl, normalize(i.direction)));
+                accumulatedColor += evaluateNetwork(
+                  accumulatedColor,
+                  accumulatedFeatures,
+                  normalize(i.direction)
+                );
               }
               return fixed4(accumulatedColor, 1.0);
             }
