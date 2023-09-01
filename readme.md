@@ -13,6 +13,10 @@ Real-time View Synthesis in Unbounded Scenes](https://creiser.github.io/merf/)[^
 
 - Everything mostly works up to calculating the diffuse term of the volume. But the *'evaluateNetwork()'* function in the shader seems to return unreasonably high values, probably due to some coordinate space or other platform-specific differences between the original Three.js viewer and Unity. Contributions welcome.
 
-## Acknowledgements
+## References
+
+Other projects exploring NeRFs and related techniques in Unity:
+- [MobileNeRF (Exploiting the Polygon Rasterization Pipeline for Efficient Neural Field Rendering on Mobile Architectures)](https://github.com/julienkay/SNeRG-Unity-Viewer)
+- [SNeRG (Sparse Neural Radiance Grids)](https://github.com/julienkay/SNeRG-Unity-Viewer)
 
 [^1]: [Christian Reiser and Richard Szeliski and Dor Verbin and Pratul P. Srinivasan and Ben Mildenhall and Andreas Geiger and Jonathan T. Barron and Peter Hedman. MERF: Memory-Efficient Radiance Fields for Real-time View Synthesis in Unbounded Scenes. SIGGRAPH, 2023](https://creiser.github.io/merf/)
